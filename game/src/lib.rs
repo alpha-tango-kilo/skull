@@ -35,6 +35,20 @@ impl Default for State {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
+pub struct InputRequest {
+    pub player: u8,
+    pub input: InputType,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum InputType {
+    PlayCard,           // When not everyone has played a card
+    PlayCardOrStartBid, // When everyone has played a card
+    BidOrPass,
+    FlipCard,
+}
+
 #[derive(Debug)]
 pub struct Game {
     scores: SmallVec<[u8; 6]>,
@@ -62,13 +76,59 @@ impl Game {
 
     // TODO: could present as a SmallVec behind a feature gate
     pub fn hands(&self) -> Vec<&[Card]> {
-        self.player_hands
-            .iter()
-            .map(SmallVec::as_slice)
-            .collect()
+        self.player_hands.iter().map(SmallVec::as_slice).collect()
     }
 
     pub fn state(&self) -> &State {
         &self.state
+    }
+
+    pub fn next_input(&self) -> InputRequest {
+        use InputType::*;
+        let player = self.player();
+
+        match self.state {
+            Playing { .. } => {
+                if self.cards_played_count() as usize >= self.player_hands.len()
+                {
+                    InputRequest {
+                        player,
+                        input: PlayCardOrStartBid,
+                    }
+                } else {
+                    InputRequest {
+                        player,
+                        input: PlayCard,
+                    }
+                }
+            }
+            Bidding { .. } => InputRequest {
+                player,
+                input: BidOrPass,
+            },
+            Challenging { .. } => InputRequest {
+                player,
+                input: FlipCard,
+            },
+        }
+    }
+
+    fn player(&self) -> u8 {
+        match self.state {
+            Playing { current_player } => current_player,
+            Bidding { current_bidder, .. } => current_bidder,
+            Challenging { challenger, .. } => challenger,
+        }
+    }
+
+    fn cards_played_count(&self) -> u8 {
+        self.cards_played
+            .iter()
+            // Safe conversion as hand.len() should never be more than 4
+            .map(|hand| {
+                debug_assert!(hand.len() <= 4, "Hand unexpectedly large");
+                hand.len() as u8
+            })
+            .sum()
     }
 }
