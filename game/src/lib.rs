@@ -12,7 +12,7 @@ pub enum Card {
 }
 
 #[derive(Debug)]
-enum State {
+pub enum State {
     Playing {
         current_player: u8,
     },
@@ -54,5 +54,21 @@ impl Game {
             cards_played: smallvec![Default::default(); players as usize],
             state: Default::default(),
         }
+    }
+
+    pub fn scores(&self) -> &[u8] {
+        self.scores.as_slice()
+    }
+
+    // TODO: could present as a SmallVec behind a feature gate
+    pub fn hands(&self) -> Vec<&[Card]> {
+        self.player_hands
+            .iter()
+            .map(SmallVec::as_slice)
+            .collect()
+    }
+
+    pub fn state(&self) -> &State {
+        &self.state
     }
 }
