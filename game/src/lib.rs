@@ -1,11 +1,24 @@
 use smallvec::{smallvec, SmallVec};
 
+use std::convert::TryFrom;
+use std::fmt;
+
+use rand::rngs::ThreadRng;
+use rand::Rng;
+
 use State::*;
 
 #[derive(Debug, Copy, Clone)]
 pub enum Card {
     Flower,
     Skull,
+}
+
+impl fmt::Display for Card {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Reuse Debug impl
+        write!(f, "{:?}", self)
+    }
 }
 
 #[derive(Debug, Default, Copy, Clone)]
@@ -27,20 +40,51 @@ impl Hand {
         self.skull
     }
 
+    pub fn has(&self, other: Card) -> bool {
+        use Card::*;
+        match other {
+            Skull => self.has_skull(),
+            Flower => self.flowers > 0,
+        }
+    }
+
     pub fn count(&self) -> u8 {
         self.flowers + self.skull as u8
     }
 
     pub fn as_vec(&self) -> Vec<Card> {
         let mut v = vec![Card::Flower; self.flowers as usize];
-        if self.skull { v.insert(0, Card::Skull) }
+        if self.skull {
+            v.insert(0, Card::Skull)
+        }
         v
     }
 
     fn is_superset_of(&self, other: Hand) -> bool {
-        let skull_ok = self.skull == other.skull || (self.skull && !other.skull);
+        let skull_ok =
+            self.skull == other.skull || (self.skull && !other.skull);
         let flowers_ok = self.flowers >= other.flowers;
         skull_ok && flowers_ok
+    }
+
+    fn discard_one(&mut self, rng: &mut ThreadRng) {
+        debug_assert!(
+            self.count() > 0,
+            "Tried to discard card with none in hand"
+        );
+
+        let choice = rng.gen_range(0..=self.count());
+        if choice == 0 && self.skull {
+            self.skull = false;
+        } else {
+            self.flowers -= 1;
+        }
+    }
+}
+
+impl fmt::Display for Hand {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self.as_vec())
     }
 }
 
@@ -55,7 +99,7 @@ impl std::ops::Sub for Hand {
             Truth table for skull:
             LHS     RHS     Output
              F       F        F
-             F       T        Err (covered above)
+             F       T        Err
              T       F        T
              T       T        F
             Because the Err condition has already been checked, we can just XOR (^) here
@@ -77,6 +121,7 @@ pub enum State {
     Bidding {
         current_bidder: usize,
         current_bid: usize,
+        highest_bidder: usize,
         max_bid: usize,
         passed: SmallVec<[bool; 6]>,
     },
@@ -94,6 +139,19 @@ impl Default for State {
 }
 
 #[derive(Debug, Copy, Clone)]
+pub enum Event {
+    Input(InputRequest),
+    BidStarted,
+    ChallengeStarted,
+    ChallengerChoseSkull {
+        challenger: usize,
+        skull_player: usize,
+    },
+    ChallengeWon(usize),
+    ChallengeWonGameWon(usize),
+}
+
+#[derive(Debug, Copy, Clone)]
 pub struct InputRequest {
     pub player: usize,
     pub input: InputType,
@@ -107,17 +165,26 @@ pub enum InputType {
     FlipCard,
 }
 
+#[derive(Debug, Copy, Clone)]
+pub enum Response {
+    PlayCard(Card),
+    Bid(usize),
+    Pass,
+    Flip(usize, usize),
+}
+
 #[derive(Debug)]
 pub struct Game {
-    scores: SmallVec<[u8; 6]>,
-    player_hands: SmallVec<[Hand; 6]>,
-    cards_played: SmallVec<[Hand; 6]>,
-    state: State,
+    scores: SmallVec<[u8; 6]>,          // public via getter
+    player_hands: SmallVec<[Hand; 6]>,  // public via getter
+    cards_played: SmallVec<[SmallVec<[Card; 4]>; 6]>,
+    state: State,                       // public via getter
+    pending_event: Option<Event>,
+    rng: ThreadRng,
 }
 
 impl Game {
     pub fn new(players: usize) -> Self {
-        // Range should preferably be checked by wrapper (CLI/GUI)
         assert!((3..=6).contains(&players), "Invalid number of players");
 
         Game {
@@ -125,6 +192,8 @@ impl Game {
             player_hands: smallvec![Hand::new(); players],
             cards_played: smallvec![Default::default(); players],
             state: Default::default(),
+            pending_event: Default::default(),
+            rng: Default::default(),
         }
     }
 
@@ -140,33 +209,151 @@ impl Game {
         &self.state
     }
 
-    pub fn next_input(&self) -> InputRequest {
+    pub fn what_next(&self) -> Event {
         use InputType::*;
-        let player = self.player();
-
-        match self.state {
-            Playing { .. } => {
-                if self.cards_played_count() as usize >= self.player_hands.len() {
-                    InputRequest {
-                        player,
-                        input: PlayCardOrStartBid,
+        match self.pending_event {
+            Some(event) => event,
+            None => Event::Input(InputRequest {
+                player: self.player(),
+                input: match self.state {
+                    Playing { .. } => {
+                        if self.cards_played_count() >= self.player_hands.len()
+                        {
+                            PlayCardOrStartBid
+                        } else {
+                            PlayCard
+                        }
                     }
+                    Bidding { .. } => BidOrPass,
+                    Challenging { .. } => FlipCard,
+                },
+            }),
+        }
+    }
+
+    pub fn respond(&mut self, response: &Response) {
+        // These both have to be worked out before we start working mutably
+        // with Game, even though they aren't always used
+        let player_count = self.player_count();
+        let played_count = self.cards_played_count();
+        let flipped_count = self.cards_flipped_count();
+
+        let Game { state, .. } = self;
+
+        // TODO: starting a challenge (checking for own skulls)
+        // TODO: account for players that are out
+        // TODO: card discarding
+        use Response::*;
+        // Match against state & response instead of input?
+        match (state, response) {
+            (Playing { current_player }, PlayCard(card)) => {
+                assert!(
+                    self.player_hands[*current_player].has(*card),
+                    "Player is playing card they don't have\nHand: {}\nCard: {}",
+                    self.player_hands[*current_player],
+                    card
+                );
+                self.cards_played[*current_player].push(*card);
+                self.increment_player();
+            }
+            (Playing { current_player }, Bid(n)) => {
+                assert!(
+                    *n <= played_count,
+                    "Started bid for more cards than are in play"
+                );
+                if *n < played_count {
+                    self.state = State::Bidding {
+                        current_bidder: (*current_player + 1) % player_count,
+                        current_bid: *n,
+                        highest_bidder: *current_player,
+                        max_bid: played_count,
+                        passed: Default::default(),
+                    };
                 } else {
-                    InputRequest {
-                        player,
-                        input: PlayCard,
+                    // Start bid on max, instantly start challenge
+                    self.state = State::Challenging {
+                        challenger: *current_player,
+                        target: played_count,
+                        flipped: Default::default(),
+                    };
+                }
+            }
+            (
+                Bidding {
+                    current_bidder,
+                    highest_bidder,
+                    current_bid,
+                    max_bid,
+                    ..
+                },
+                Bid(n),
+            ) => {
+                assert!(
+                    n <= max_bid,
+                    "Bid greater than maximum ({} > {})",
+                    n,
+                    max_bid
+                );
+                assert!(
+                    n > current_bid,
+                    "Bid less than current ({} < {})",
+                    n,
+                    current_bid
+                );
+                *max_bid = *n;
+                *highest_bidder = *current_bidder;
+                self.increment_player();
+            }
+            (
+                Bidding { .. },
+                Pass,
+            ) => todo!("Passing on a bid (check if progressing to challenge)"),
+            (
+                Challenging {
+                    challenger,
+                    target,
+                    flipped,
+                },
+                Flip(player_index, card_index),
+            ) => {
+                assert!(
+                    *player_index < player_count,
+                    "Invalid player specified"
+                );
+                assert!(
+                    *card_index
+                        < self.player_hands[*player_index].count() as usize,
+                    "Invalid card specified"
+                );
+                assert!(
+                    !flipped[*player_index].contains(card_index),
+                    "Tried to flip already-flipped card"
+                );
+
+                let card_flipped =
+                    self.cards_played[*player_index][*card_index];
+                use Card::*;
+                match card_flipped {
+                    Skull => {
+                        self.player_hands[*challenger]
+                            .discard_one(&mut self.rng);
+                        // TODO: revert to Playing state
+                    }
+                    Flower => {
+                        flipped[*player_index].push(*card_index);
+                        if flipped_count.unwrap() == *target {
+                            self.scores[*challenger] += 1;
+                            // TODO: check for win, revert to Playing state
+                        }
                     }
                 }
             }
-            Bidding { .. } => InputRequest {
-                player,
-                input: BidOrPass,
-            },
-            Challenging { .. } => InputRequest {
-                player,
-                input: FlipCard,
-            },
+            _ => panic!("Invalid response to given input type"),
         }
+    }
+
+    pub fn player_count(&self) -> usize {
+        self.player_hands.len()
     }
 
     fn player(&self) -> usize {
@@ -177,7 +364,40 @@ impl Game {
         }
     }
 
-    fn cards_played_count(&self) -> u8 {
-        self.cards_played.iter().map(Hand::count).sum()
+    fn increment_player(&mut self) {
+        let player_count = self.player_count();
+        let state = &mut self.state;
+        match state {
+            Playing { current_player } => *current_player = (*current_player + 1) % player_count,
+            Bidding {
+                current_bidder,
+                passed,
+                ..
+            } => {
+                assert_ne!(
+                    passed.as_slice(),
+                    &vec![true; player_count],
+                    "Infinite loop caused by trying to increment player when all players have passed in the bid",
+                );
+
+                *current_bidder = (*current_bidder + 1) % player_count;
+                while passed[*current_bidder] {
+                    *current_bidder = (*current_bidder + 1) % player_count;
+                }
+            }
+            _ => unreachable!("Increment player should not be called unless playing or bidding"),
+        }
+    }
+
+    fn cards_played_count(&self) -> usize {
+        self.cards_played.iter().map(SmallVec::len).sum()
+    }
+
+    fn cards_flipped_count(&self) -> Option<usize> {
+        if let State::Challenging { flipped, .. } = &self.state {
+            Some(flipped.iter().map(SmallVec::len).sum())
+        } else {
+            None
+        }
     }
 }
