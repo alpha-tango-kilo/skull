@@ -1,0 +1,12 @@
+[package]
+name = "skull"
+authors = ["alpha-tango-kilo <git@heyatk.com>"]
+version = "0.1.0"
+edition = "2018"
+license = "GPL-3.0-only"
+readme = "README.md"
+
+[workspace]
+members = [
+    "game",
+]
