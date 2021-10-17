@@ -11,21 +11,22 @@ pub enum Card {
     Skull,
 }
 
+#[allow(clippy::large_enum_variant)] // Might fix this later
 #[derive(Debug)]
 pub enum State {
     Playing {
-        current_player: u8,
+        current_player: usize,
     },
     Bidding {
-        current_bidder: u8,
-        current_bid: u8,
-        max_bid: u8,
+        current_bidder: usize,
+        current_bid: usize,
+        max_bid: usize,
         passed: SmallVec<[bool; 6]>,
     },
     Challenging {
-        challenger: u8,
-        target: u8,
-        flipped: SmallVec<[SmallVec<[u8; 4]>; 6]>,
+        challenger: usize,
+        target: usize,
+        flipped: SmallVec<[SmallVec<[usize; 4]>; 6]>,
     },
 }
 
@@ -37,7 +38,7 @@ impl Default for State {
 
 #[derive(Debug, Copy, Clone)]
 pub struct InputRequest {
-    pub player: u8,
+    pub player: usize,
     pub input: InputType,
 }
 
@@ -51,26 +52,26 @@ pub enum InputType {
 
 #[derive(Debug)]
 pub struct Game {
-    scores: SmallVec<[u8; 6]>,
+    scores: SmallVec<[usize; 6]>,
     player_hands: SmallVec<[Hand; 6]>,
     cards_played: SmallVec<[Hand; 6]>,
     state: State,
 }
 
 impl Game {
-    pub fn new(players: u8) -> Self {
+    pub fn new(players: usize) -> Self {
         // Range should preferably be checked by wrapper (CLI/GUI)
         assert!((3..=6).contains(&players), "Invalid number of players");
 
         Game {
-            scores: smallvec![0; players as usize],
-            player_hands: smallvec![smallvec![Skull, Flower, Flower, Flower]; players as usize],
-            cards_played: smallvec![Default::default(); players as usize],
+            scores: smallvec![0; players],
+            player_hands: smallvec![smallvec![Skull, Flower, Flower, Flower]; players],
+            cards_played: smallvec![Default::default(); players],
             state: Default::default(),
         }
     }
 
-    pub fn scores(&self) -> &[u8] {
+    pub fn scores(&self) -> &[usize] {
         self.scores.as_slice()
     }
 
@@ -89,8 +90,7 @@ impl Game {
 
         match self.state {
             Playing { .. } => {
-                if self.cards_played_count() as usize >= self.player_hands.len()
-                {
+                if self.cards_played_count() >= self.player_hands.len() {
                     InputRequest {
                         player,
                         input: PlayCardOrStartBid,
@@ -113,7 +113,7 @@ impl Game {
         }
     }
 
-    fn player(&self) -> u8 {
+    fn player(&self) -> usize {
         match self.state {
             Playing { current_player } => current_player,
             Bidding { current_bidder, .. } => current_bidder,
@@ -121,14 +121,7 @@ impl Game {
         }
     }
 
-    fn cards_played_count(&self) -> u8 {
-        self.cards_played
-            .iter()
-            // Safe conversion as hand.len() should never be more than 4
-            .map(|hand| {
-                debug_assert!(hand.len() <= 4, "Hand unexpectedly large");
-                hand.len() as u8
-            })
-            .sum()
+    fn cards_played_count(&self) -> usize {
+        self.cards_played.iter().map(SmallVec::len).sum()
     }
 }
