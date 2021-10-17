@@ -1,14 +1,71 @@
 use smallvec::{smallvec, SmallVec};
 
-use Card::*;
 use State::*;
-
-type Hand = SmallVec<[Card; 4]>;
 
 #[derive(Debug, Copy, Clone)]
 pub enum Card {
     Flower,
     Skull,
+}
+
+#[derive(Debug, Default, Copy, Clone)]
+pub struct Hand {
+    skull: bool,
+    flowers: u8,
+}
+
+impl Hand {
+    // WARNING: new() and default() differ
+    pub fn new() -> Self {
+        Hand {
+            skull: true,
+            flowers: 3,
+        }
+    }
+
+    pub fn has_skull(&self) -> bool {
+        self.skull
+    }
+
+    pub fn count(&self) -> u8 {
+        self.flowers + self.skull as u8
+    }
+
+    pub fn as_vec(&self) -> Vec<Card> {
+        let mut v = vec![Card::Flower; self.flowers as usize];
+        if self.skull { v.insert(0, Card::Skull) }
+        v
+    }
+
+    fn is_superset_of(&self, other: Hand) -> bool {
+        let skull_ok = self.skull == other.skull || (self.skull && !other.skull);
+        let flowers_ok = self.flowers >= other.flowers;
+        skull_ok && flowers_ok
+    }
+}
+
+impl std::ops::Sub for Hand {
+    type Output = Result<Hand, &'static str>;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        if !self.is_superset_of(rhs) {
+            Err("RHS has cards LHS doesn't have")
+        } else {
+            /*
+            Truth table for skull:
+            LHS     RHS     Output
+             F       F        F
+             F       T        Err (covered above)
+             T       F        T
+             T       T        F
+            Because the Err condition has already been checked, we can just XOR (^) here
+             */
+            let skull = self.skull ^ rhs.skull;
+            // Subtraction doesn't need to be checked because of check
+            let flowers = self.flowers - rhs.flowers;
+            Ok(Hand { skull, flowers })
+        }
+    }
 }
 
 #[allow(clippy::large_enum_variant)] // Might fix this later
@@ -52,7 +109,7 @@ pub enum InputType {
 
 #[derive(Debug)]
 pub struct Game {
-    scores: SmallVec<[usize; 6]>,
+    scores: SmallVec<[u8; 6]>,
     player_hands: SmallVec<[Hand; 6]>,
     cards_played: SmallVec<[Hand; 6]>,
     state: State,
@@ -65,19 +122,18 @@ impl Game {
 
         Game {
             scores: smallvec![0; players],
-            player_hands: smallvec![smallvec![Skull, Flower, Flower, Flower]; players],
+            player_hands: smallvec![Hand::new(); players],
             cards_played: smallvec![Default::default(); players],
             state: Default::default(),
         }
     }
 
-    pub fn scores(&self) -> &[usize] {
+    pub fn scores(&self) -> &[u8] {
         self.scores.as_slice()
     }
 
-    // TODO: could present as a SmallVec behind a feature gate
-    pub fn hands(&self) -> Vec<&[Card]> {
-        self.player_hands.iter().map(SmallVec::as_slice).collect()
+    pub fn hands(&self) -> &[Hand] {
+        self.player_hands.as_slice()
     }
 
     pub fn state(&self) -> &State {
@@ -90,7 +146,7 @@ impl Game {
 
         match self.state {
             Playing { .. } => {
-                if self.cards_played_count() >= self.player_hands.len() {
+                if self.cards_played_count() as usize >= self.player_hands.len() {
                     InputRequest {
                         player,
                         input: PlayCardOrStartBid,
@@ -121,7 +177,7 @@ impl Game {
         }
     }
 
-    fn cards_played_count(&self) -> usize {
-        self.cards_played.iter().map(SmallVec::len).sum()
+    fn cards_played_count(&self) -> u8 {
+        self.cards_played.iter().map(Hand::count).sum()
     }
 }
