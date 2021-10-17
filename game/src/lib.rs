@@ -6,6 +6,7 @@ use std::fmt;
 use rand::rngs::ThreadRng;
 use rand::Rng;
 
+use Event::*;
 use State::*;
 
 #[derive(Debug, Copy, Clone)]
@@ -161,6 +162,7 @@ pub struct InputRequest {
 pub enum InputType {
     PlayCard,           // When not everyone has played a card
     PlayCardOrStartBid, // When everyone has played a card
+    StartBid,           // When player has no cards remaining
     BidOrPass,
     FlipCard,
 }
@@ -209,19 +211,45 @@ impl Game {
         &self.state
     }
 
-    pub fn what_next(&self) -> Event {
+    pub fn what_next(&mut self) -> Event {
+        use Event::*;
         use InputType::*;
         match self.pending_event {
-            Some(event) => event,
+            Some(event) => {
+                match event {
+                    ChallengeStarted => todo!("Check for own skulls"),
+                    ChallengerChoseSkull { skull_player, .. } => {
+                        // Transition back to playing
+                        self.state = State::Playing { current_player: skull_player };
+                    }
+                    ChallengeWon(player) => {
+                        // Transition back to playing
+                        self.state = State::Playing { current_player: player };
+                    }
+                    Input(_) => unreachable!("Input events should never be stored as a pending event"),
+                    _ => {} // No-ops: BidStarted, ChallengeWonGameWon
+                }
+                self.pending_event = None;
+                event
+            }
             None => Event::Input(InputRequest {
                 player: self.player(),
                 input: match self.state {
-                    Playing { .. } => {
-                        if self.cards_played_count() >= self.player_hands.len()
+                    Playing { current_player } => {
+                        // Check player has cards to play,
+                        if self.cards_played[current_player].len()
+                            < self.player_hands[current_player].count() as usize
                         {
-                            PlayCardOrStartBid
+                            // if they do, see if they're allowed to start bidding.
+                            if self.cards_played_count() >= self.player_count()
+                            {
+                                PlayCardOrStartBid
+                            } else {
+                                PlayCard
+                            }
                         } else {
-                            PlayCard
+                            // if they don't, they must start bidding.
+                            StartBid
                         }
                     }
                     Bidding { .. } => BidOrPass,
@@ -246,6 +274,7 @@ impl Game {
         use Response::*;
         // Match against state & response instead of input?
         match (state, response) {
+            // Playing card
             (Playing { current_player }, PlayCard(card)) => {
                 assert!(
                     self.player_hands[*current_player].has(*card),
@@ -256,6 +285,7 @@ impl Game {
                 self.cards_played[*current_player].push(*card);
                 self.increment_player();
             }
+            // Starting bid
             (Playing { current_player }, Bid(n)) => {
                 assert!(
                     *n <= played_count,
@@ -269,6 +299,7 @@ impl Game {
                         max_bid: played_count,
                         passed: Default::default(),
                     };
+                    self.pending_event = Some(BidStarted);
                 } else {
                     // Start bid on max, instantly start challenge
                     self.state = State::Challenging {
@@ -276,8 +307,10 @@ impl Game {
                         target: played_count,
                         flipped: Default::default(),
                     };
+                    self.pending_event = Some(ChallengeStarted);
                 }
             }
+            // Raising bid
             (
                 Bidding {
                     current_bidder,
@@ -303,11 +336,13 @@ impl Game {
                 *max_bid = *n;
                 *highest_bidder = *current_bidder;
                 self.increment_player();
+                // TODO: check if bid is at max and start challenge if so
             }
-            (
-                Bidding { .. },
-                Pass,
-            ) => todo!("Passing on a bid (check if progressing to challenge)"),
+            // Player passes on bid
+            (Bidding { .. }, Pass) => {
+                todo!("Passing on a bid (check if progressing to challenge)")
+            }
+            // Challenger flips a card
             (
                 Challenging {
                     challenger,
@@ -337,13 +372,21 @@ impl Game {
                     Skull => {
                         self.player_hands[*challenger]
                             .discard_one(&mut self.rng);
-                        // TODO: revert to Playing state
+                        self.pending_event = Some(ChallengerChoseSkull {
+                            challenger: *challenger,
+                            skull_player: *player_index,
+                        });
                     }
                     Flower => {
                         flipped[*player_index].push(*card_index);
                         if flipped_count.unwrap() == *target {
                             self.scores[*challenger] += 1;
-                            // TODO: check for win, revert to Playing state
+                            self.pending_event =
+                                Some(if self.scores[*challenger] == 2 {
+                                    ChallengeWonGameWon(*challenger)
+                                } else {
+                                    ChallengeWon(*challenger)
+                                });
                         }
                     }
                 }
