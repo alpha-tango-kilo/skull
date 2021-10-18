@@ -47,7 +47,7 @@ mod playing {
         game_two.respond(Bid(2));
         if let State::Bidding {
             current_bidder,
-            current_bid,
+            highest_bid: current_bid,
             highest_bidder,
             max_bid,
             passed,
@@ -101,7 +101,7 @@ mod playing {
         game.respond(Bid(2));
         if let State::Bidding {
             current_bidder,
-            current_bid,
+            highest_bid: current_bid,
             highest_bidder,
             max_bid,
             passed,
@@ -157,7 +157,7 @@ mod bidding {
             smallvec![smallvec![Flower]; 3],
             State::Bidding {
                 current_bidder: 0,
-                current_bid: 1,
+                highest_bid: 1,
                 highest_bidder: 2,
                 max_bid: 3,
                 passed: smallvec![false; 3],
@@ -179,7 +179,7 @@ mod bidding {
             smallvec![smallvec![Flower]; 3],
             State::Bidding {
                 current_bidder: 0,
-                current_bid: 2,
+                highest_bid: 2,
                 highest_bidder: 2,
                 max_bid: 3,
                 passed: smallvec![false; 3],
@@ -207,7 +207,7 @@ mod bidding {
             smallvec![smallvec![Flower]; 3],
             State::Bidding {
                 current_bidder: bidder,
-                current_bid: 2,
+                highest_bid: 2,
                 highest_bidder: 2,
                 max_bid: 3,
                 passed: smallvec![false; 3],
@@ -240,7 +240,7 @@ mod bidding {
             smallvec![smallvec![Flower]; 3],
             State::Bidding {
                 current_bidder: bidder,
-                current_bid: 2,
+                highest_bid: 2,
                 highest_bidder: 2,
                 max_bid: 3,
                 passed: smallvec![false, true, false],

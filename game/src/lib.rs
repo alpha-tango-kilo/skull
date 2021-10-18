@@ -159,7 +159,7 @@ pub enum State {
     },
     Bidding {
         current_bidder: usize,
-        current_bid: usize,
+        highest_bid: usize,
         highest_bidder: usize,
         max_bid: usize,
         passed: SmallVec<[bool; 6]>,
@@ -189,6 +189,7 @@ pub enum Event {
         challenger: usize,
         skull_player: usize,
     },
+    PlayerOut(usize), // TODO: implement this
     ChallengeWon(usize),
     ChallengeWonGameWon(usize),
 }
@@ -331,7 +332,7 @@ impl Game {
                 if n < played_count {
                     self.state = State::Bidding {
                         current_bidder: (*current_player + 1) % player_count,
-                        current_bid: n,
+                        highest_bid: n,
                         highest_bidder: *current_player,
                         max_bid: played_count,
                         passed: Default::default(),
@@ -352,7 +353,7 @@ impl Game {
                 Bidding {
                     current_bidder,
                     highest_bidder,
-                    current_bid,
+                    highest_bid: current_bid,
                     max_bid,
                     ..
                 },
@@ -373,7 +374,7 @@ impl Game {
                 *max_bid = n;
                 *highest_bidder = *current_bidder;
                 self.increment_player();
-                // TODO: check if bid is at max and start challenge if so
+                todo!("check if bid is at max and start challenge if so");
             }
             // Player passes on bid
             (Bidding { .. }, Pass) => {
@@ -402,8 +403,7 @@ impl Game {
                     "Tried to flip already-flipped card"
                 );
 
-                let card_flipped =
-                    self.cards_played[player_index][card_index];
+                let card_flipped = self.cards_played[player_index][card_index];
                 use Card::*;
                 match card_flipped {
                     Skull => {
@@ -574,13 +574,19 @@ impl Game {
         );
 
         match &self.state {
-            Playing { current_player } => assert!(
-                *current_player < self.scores.len(),
-                "Current player index out of range"
-            ),
+            Playing { current_player } => {
+                assert!(
+                    *current_player < self.scores.len(),
+                    "Current player index out of range"
+                );
+                assert!(
+                    !self.is_player_out(*current_player),
+                    "Current player mustn't be out"
+                );
+            }
             Bidding {
                 current_bidder,
-                current_bid,
+                highest_bid: current_bid,
                 highest_bidder,
                 max_bid,
                 passed,
@@ -590,6 +596,10 @@ impl Game {
                     "Current bidder index out of range"
                 );
                 assert!(
+                    !self.is_player_out(*current_bidder),
+                    "Current bidder mustn't be out"
+                );
+                assert!(
                     current_bid < max_bid,
                     "Current bid must be strictly less than maximum (else a challenge should have started"
                 );
@@ -597,10 +607,15 @@ impl Game {
                     *highest_bidder < self.scores.len(),
                     "Highest bidder out of range"
                 );
+                assert!(
+                    !self.is_player_out(*highest_bidder),
+                    "Current bidder mustn't be out"
+                );
                 assert_ne!(
-                    current_bid, highest_bidder,
+                    current_bidder, highest_bidder,
                     "Current and highest bidder mustn't be same person"
                 );
+                // TODO: at most all but two players can have passed
                 assert!(
                     !passed.iter().all(|b| *b),
                     "Not all players can have passed"
@@ -611,6 +626,7 @@ impl Game {
                 target,
                 flipped,
             } => {
+                // TODO: check if challenger is out (if possible?)
                 assert!(
                     *challenger < self.scores.len(),
                     "Challenger index out of range"
