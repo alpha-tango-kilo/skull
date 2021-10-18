@@ -1,5 +1,3 @@
-// TODO
-
 mod playing {
     use game::Card::*;
     use game::Event::*;
@@ -264,5 +262,264 @@ mod bidding {
             ChallengeStarted,
             "ChallengeStarted event not fired"
         );
+    }
+}
+
+mod challenging {
+    // TODO: players getting out, flipping more than their own cards
+    mod flipping_own_cards {
+        use game::Card::*;
+        use game::Event::*;
+        use game::*;
+
+        use smallvec::smallvec;
+        
+        #[test]
+        fn all_not_win_or_loss() {
+            let challenger = 0;
+            let mut game = Game::create_from(
+                smallvec![0; 3],
+                smallvec![Hand::new(); 3],
+                smallvec![smallvec![Flower; 2]; 3],
+                State::Challenging {
+                    challenger,
+                    target: 5,
+                    flipped: smallvec![smallvec![]; 3],
+                },
+                Some(ChallengeStarted),
+            );
+            assert_eq!(
+                game.what_next(),
+                ChallengeStarted,
+                "ChallengeStarted event not emitted (despite being provided)"
+            );
+            // Check challenger's own cards have been automatically flipped
+            if let State::Challenging { flipped, .. } = game.state() {
+                assert_eq!(
+                    flipped[challenger].as_slice(),
+                    &[0, 1],
+                    "Challenger's cards not correctly flipped"
+                );
+            }
+
+            assert_eq!(
+                game.what_next(),
+                Input {
+                    player: challenger,
+                    input: InputType::FlipCard,
+                },
+                "Challenger not prompted for further input"
+            );
+        }
+
+        #[test]
+        fn all_loss() {
+            let challenger = 0;
+            let mut game = Game::create_from(
+                smallvec![0; 3],
+                smallvec![Hand::new(); 3],
+                smallvec![smallvec![Flower, Skull]; 3],
+                State::Challenging {
+                    challenger,
+                    target: 5,
+                    flipped: smallvec![smallvec![]; 3],
+                },
+                Some(ChallengeStarted),
+            );
+            assert_eq!(
+                game.what_next(),
+                ChallengeStarted,
+                "ChallengeStarted event not emitted (despite being provided)"
+            );
+            // Check challenger's own cards have been automatically flipped
+            if let State::Challenging { flipped, .. } = game.state() {
+                assert_eq!(
+                    flipped[challenger].as_slice(),
+                    &[0, 1],
+                    "Challenger's cards not correctly flipped"
+                );
+            }
+
+            assert_eq!(
+                game.what_next(),
+                ChallengerChoseSkull {
+                    challenger,
+                    skull_player: challenger,
+                },
+                "ChallengerChoseSkull event not fired"
+            );
+            assert_eq!(
+                game.what_next(),
+                Input {
+                    player: challenger,
+                    input: InputType::PlayCard,
+                },
+                "Playing didn't resume after lost challenge (or didn't resume from correct player)"
+            );
+            assert_eq!(
+                game.hands()[challenger].count(),
+                3,
+                "Losing challenger didn't have card discarded"
+            );
+        }
+
+        #[test]
+        fn all_win() {
+            let challenger = 0;
+            let mut game = Game::create_from(
+                smallvec![0; 3],
+                smallvec![Hand::new(); 3],
+                smallvec![smallvec![Flower; 2]; 3],
+                State::Challenging {
+                    challenger,
+                    target: 2,
+                    flipped: smallvec![smallvec![]; 3],
+                },
+                Some(ChallengeStarted),
+            );
+            assert_eq!(
+                game.what_next(),
+                ChallengeStarted,
+                "ChallengeStarted event not emitted (despite being provided)"
+            );
+            // Check challenger's own cards have been automatically flipped
+            if let State::Challenging { flipped, .. } = game.state() {
+                assert_eq!(
+                    flipped[challenger].as_slice(),
+                    &[0, 1],
+                    "Challenger's cards not correctly flipped"
+                );
+            }
+
+            assert_eq!(
+                game.what_next(),
+                ChallengeWon(challenger),
+                "ChallengeWon({}) event not emitted",
+                challenger
+            );
+            assert_eq!(
+                game.scores()[challenger],
+                1,
+                "Challenger not awarded one point"
+            );
+            assert_eq!(
+                game.cards_played().as_slice(),
+                &[&[], &[], &[]],
+                "Cards played was not reset"
+            );
+            assert_eq!(
+                game.what_next(),
+                Input {
+                    player: challenger,
+                    input: InputType::PlayCard,
+                },
+                "Challenge winner not prompted to play card after ChallengeWon event cleared"
+            );
+        }
+
+        #[test]
+        fn some_win() {
+            let challenger = 0;
+            let mut game = Game::create_from(
+                smallvec![0; 3],
+                smallvec![Hand::new(); 3],
+                smallvec![smallvec![Skull, Flower]; 3],
+                State::Challenging {
+                    challenger,
+                    target: 1,
+                    flipped: smallvec![smallvec![]; 3],
+                },
+                Some(ChallengeStarted),
+            );
+            assert_eq!(
+                game.what_next(),
+                ChallengeStarted,
+                "ChallengeStarted event not emitted (despite being provided)"
+            );
+            // Check challenger's own cards have been automatically flipped
+            if let State::Challenging { flipped, .. } = game.state() {
+                assert_eq!(
+                    flipped[challenger].as_slice(),
+                    &[1],
+                    "Challenger's cards not correctly flipped"
+                );
+            }
+
+            assert_eq!(
+                game.what_next(),
+                ChallengeWon(challenger),
+                "ChallengeWon({}) event not emitted",
+                challenger
+            );
+            assert_eq!(
+                game.scores()[challenger],
+                1,
+                "Challenger not awarded one point"
+            );
+            assert_eq!(
+                game.cards_played().as_slice(),
+                &[&[], &[], &[]],
+                "Cards played was not reset"
+            );
+            assert_eq!(
+                game.what_next(),
+                Input {
+                    player: challenger,
+                    input: InputType::PlayCard,
+                },
+                "Challenge winner not prompted to play card after ChallengeWon event cleared"
+            );
+        }
+
+        #[test]
+        fn some_loss() {
+            let challenger = 0;
+            let mut game = Game::create_from(
+                smallvec![0; 3],
+                smallvec![Hand::new(); 3],
+                smallvec![smallvec![Flower, Skull]; 3],
+                State::Challenging {
+                    challenger,
+                    target: 1,
+                    flipped: smallvec![smallvec![]; 3],
+                },
+                Some(ChallengeStarted),
+            );
+            assert_eq!(
+                game.what_next(),
+                ChallengeStarted,
+                "ChallengeStarted event not emitted (despite being provided)"
+            );
+            // Check challenger's own cards have been automatically flipped
+            if let State::Challenging { flipped, .. } = game.state() {
+                assert_eq!(
+                    flipped[challenger].as_slice(),
+                    &[1],
+                    "Challenger's cards not correctly flipped"
+                );
+            }
+
+            assert_eq!(
+                game.what_next(),
+                ChallengerChoseSkull {
+                    challenger,
+                    skull_player: challenger,
+                },
+                "ChallengerChoseSkull event not fired"
+            );
+            assert_eq!(
+                game.what_next(),
+                Input {
+                    player: challenger,
+                    input: InputType::PlayCard,
+                },
+                "Playing didn't resume after lost challenge (or didn't resume from correct player)"
+            );
+            assert_eq!(
+                game.hands()[challenger].count(),
+                3,
+                "Losing challenger didn't have card discarded"
+            );
+        }
     }
 }

@@ -167,7 +167,8 @@ pub enum State {
     Challenging {
         challenger: usize,
         target: usize,
-        flipped: SmallVec<[SmallVec<[usize; 4]>; 6]>,
+        flipped: SmallVec<[SmallVec<[usize; 4]>; 6]>, // This is sorted for own cards (low - high)
+        // Could use SmallVec<[HashSet<usize>; 6]> instead
     },
 }
 
@@ -216,7 +217,7 @@ pub enum Response {
 pub struct Game {
     scores: SmallVec<[u8; 6]>,                          // public via getter
     player_hands: SmallVec<[Hand; 6]>,                  // public via getter
-    cards_played: SmallVec<[SmallVec<[Card; 4]>; 6]>,
+    cards_played: SmallVec<[SmallVec<[Card; 4]>; 6]>,   // SmallVec<[Card; 4]> is ordered bottom -> top
     state: State,                                       // public via getter
     pending_event: Option<Event>,
     rng: ThreadRng,
@@ -244,6 +245,13 @@ impl Game {
         self.player_hands.as_slice()
     }
 
+    pub fn cards_played(&self) -> Vec<&[Card]> {
+        self.cards_played
+            .iter()
+            .map(SmallVec::as_slice)
+            .collect()
+    }
+
     pub fn state(&self) -> &State {
         &self.state
     }
@@ -254,7 +262,7 @@ impl Game {
         match self.pending_event {
             Some(event) => {
                 match event {
-                    ChallengeStarted => todo!("Check for own skulls"),
+                    ChallengeStarted => todo!("Flip own cards / Check for own skulls"),
                     ChallengerChoseSkull { skull_player, .. } => {
                         // Transition back to playing
                         self.state = State::Playing { current_player: skull_player };
@@ -662,30 +670,33 @@ impl Game {
                 );
 
                 // Ensure correct cards of challenger's are flipped
-                if *target <= self.cards_played[*challenger].len() {
-                    // Flipping subset of own cards
-                    let offset = 4 - *target;
-                    assert_eq!(
-                        // Assume that flipped is sorted for own cards (low - high)
-                        flipped[*challenger].as_slice(),
-                        // Produces list from offset to one below number of cards
-                        // e.g. offset = 1, 4 cards: &[1, 2, 3]
-                        (offset..self.player_hands[*challenger].count() as usize).collect::<Vec<_>>().as_slice(),
-                        "Challenger hasn't flipped their own cards that they are required to flip"
-                    );
-                    if self.cards_played[*challenger][offset..].contains(&Skull)
-                    {
-                        self.assert_self_skull_correctly_declared();
-                    }
-                } else {
-                    // Flipping all of own cards
-                    assert_eq!(
-                        flipped[*challenger].len(),
-                        self.cards_played[*challenger].len(),
-                        "Challenger hasn't flipped all of their own cards when they needed to"
-                    );
-                    if self.cards_played[*challenger].contains(&Skull) {
-                        self.assert_self_skull_correctly_declared();
+                // (if the challenge has been announced)
+                if !matches!(self.pending_event, Some(ChallengeStarted)) {
+                    if *target <= self.cards_played[*challenger].len() {
+                        // Flipping subset of own cards
+                        let offset = 4 - *target;
+                        assert_eq!(
+                            // Assume that flipped is sorted for own cards (low - high)
+                            flipped[*challenger].as_slice(),
+                            // Produces list from offset to one below number of cards
+                            // e.g. offset = 1, 4 cards: &[1, 2, 3]
+                            (offset..self.player_hands[*challenger].count() as usize).collect::<Vec<_>>().as_slice(),
+                            "Challenger hasn't flipped their own cards that they are required to flip"
+                        );
+                        if self.cards_played[*challenger][offset..].contains(&Skull)
+                        {
+                            self.assert_self_skull_correctly_declared();
+                        }
+                    } else {
+                        // Flipping all of own cards
+                        assert_eq!(
+                            flipped[*challenger].len(),
+                            self.cards_played[*challenger].len(),
+                            "Challenger hasn't flipped all of their own cards when they needed to"
+                        );
+                        if self.cards_played[*challenger].contains(&Skull) {
+                            self.assert_self_skull_correctly_declared();
+                        }
                     }
                 }
 
