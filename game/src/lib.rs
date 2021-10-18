@@ -295,7 +295,7 @@ impl Game {
         }
     }
 
-    pub fn respond(&mut self, response: &Response) {
+    pub fn respond(&mut self, response: Response) {
         // These both have to be worked out before we start working mutably
         // with Game, even though they aren't always used
         let player_count = self.player_count();
@@ -312,25 +312,26 @@ impl Game {
         match (state, response) {
             // Playing card
             (Playing { current_player }, PlayCard(card)) => {
+                // TODO: check if playing card they've already played
                 assert!(
-                    self.player_hands[*current_player].has(*card),
+                    self.player_hands[*current_player].has(card),
                     "Player is playing card they don't have\nHand: {}\nCard: {}",
                     self.player_hands[*current_player],
                     card
                 );
-                self.cards_played[*current_player].push(*card);
+                self.cards_played[*current_player].push(card);
                 self.increment_player();
             }
             // Starting bid
             (Playing { current_player }, Bid(n)) => {
                 assert!(
-                    *n <= played_count,
+                    n <= played_count,
                     "Started bid for more cards than are in play"
                 );
-                if *n < played_count {
+                if n < played_count {
                     self.state = State::Bidding {
                         current_bidder: (*current_player + 1) % player_count,
-                        current_bid: *n,
+                        current_bid: n,
                         highest_bidder: *current_player,
                         max_bid: played_count,
                         passed: Default::default(),
@@ -358,18 +359,18 @@ impl Game {
                 Bid(n),
             ) => {
                 assert!(
-                    n <= max_bid,
+                    n <= *max_bid,
                     "Bid greater than maximum ({} > {})",
                     n,
                     max_bid
                 );
                 assert!(
-                    n > current_bid,
+                    n > *current_bid,
                     "Bid less than current ({} < {})",
                     n,
                     current_bid
                 );
-                *max_bid = *n;
+                *max_bid = n;
                 *highest_bidder = *current_bidder;
                 self.increment_player();
                 // TODO: check if bid is at max and start challenge if so
@@ -388,21 +389,21 @@ impl Game {
                 Flip(player_index, card_index),
             ) => {
                 assert!(
-                    *player_index < player_count,
+                    player_index < player_count,
                     "Invalid player specified"
                 );
                 assert!(
-                    *card_index
-                        < self.player_hands[*player_index].count() as usize,
+                    card_index
+                        < self.player_hands[player_index].count() as usize,
                     "Invalid card specified"
                 );
                 assert!(
-                    !flipped[*player_index].contains(card_index),
+                    !flipped[player_index].contains(&card_index),
                     "Tried to flip already-flipped card"
                 );
 
                 let card_flipped =
-                    self.cards_played[*player_index][*card_index];
+                    self.cards_played[player_index][card_index];
                 use Card::*;
                 match card_flipped {
                     Skull => {
@@ -410,11 +411,11 @@ impl Game {
                             .discard_one(&mut self.rng);
                         self.pending_event = Some(ChallengerChoseSkull {
                             challenger: *challenger,
-                            skull_player: *player_index,
+                            skull_player: player_index,
                         });
                     }
                     Flower => {
-                        flipped[*player_index].push(*card_index);
+                        flipped[player_index].push(card_index);
                         if flipped_count.unwrap() == *target {
                             self.scores[*challenger] += 1;
                             self.pending_event =
