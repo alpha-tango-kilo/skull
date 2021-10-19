@@ -1,4 +1,4 @@
-use smallvec::{smallvec, SmallVec};
+use heapless::Vec as FVec; // Fixed Vec
 
 use std::convert::TryFrom;
 use std::fmt;
@@ -9,6 +9,20 @@ use rand::Rng;
 use Card::*;
 use Event::*;
 use State::*;
+
+type OrderedHand = FVec<Card, 4>;
+
+macro_rules! fvec {
+    () => {
+        $crate::FVec::new()
+    };
+    ($elem:expr; $n:expr) => {
+        $crate::FVec::from_slice(&[$elem; $n]).unwrap()
+    };
+    ( $( $x:expr ),* ) => {
+        $crate::FVec::from_slice(&[$($x),*]).unwrap()
+    };
+}
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Card {
@@ -64,6 +78,11 @@ impl Hand {
             v.insert(0, Card::Skull)
         }
         v
+    }
+
+    pub fn can_play(&self) -> Hand {
+        // Assumes self is a valid hand
+        (Hand::new() - *self).unwrap()
     }
 
     fn is_superset_of(&self, other: Hand) -> bool {
@@ -151,9 +170,8 @@ impl TryFrom<&[Card]> for Hand {
     }
 }
 
-#[allow(clippy::large_enum_variant)] // Might fix this later
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum State {
+pub enum State<const N: usize> {
     Playing {
         current_player: usize,
     },
@@ -162,20 +180,13 @@ pub enum State {
         highest_bid: usize,
         highest_bidder: usize,
         max_bid: usize,
-        passed: SmallVec<[bool; 6]>,
+        passed: [bool; N],
     },
     Challenging {
         challenger: usize,
         target: usize,
-        flipped: SmallVec<[SmallVec<[usize; 4]>; 6]>, // This is sorted for own cards (low - high)
-        // Could use SmallVec<[HashSet<usize>; 6]> instead
+        flipped: [FVec<usize, 4>; N], // This is sorted for own cards (low - high)
     },
-}
-
-impl Default for State {
-    fn default() -> Self {
-        Playing { current_player: 0 }
-    }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -214,45 +225,48 @@ pub enum Response {
 
 // TODO: move Game into its own file
 #[derive(Debug, Clone)]
-pub struct Game {
-    scores: SmallVec<[u8; 6]>,                          // public via getter
-    player_hands: SmallVec<[Hand; 6]>,                  // public via getter
-    cards_played: SmallVec<[SmallVec<[Card; 4]>; 6]>,   // SmallVec<[Card; 4]> is ordered bottom -> top
-    state: State,                                       // public via getter
+pub struct Game<const N: usize> {
+    scores: [u8; N],                        // public via getter
+    player_hands: [Hand; N],                // public via getter
+    cards_played: [OrderedHand; N],       // FVec<[Card; 4]> is ordered bottom -> top
+    state: State<N>,                        // public via getter
     pending_event: Option<Event>,
     rng: ThreadRng,
 }
 
-impl Game {
-    pub fn new(players: usize) -> Self {
-        assert!((3..=6).contains(&players), "Invalid number of players");
+impl<const N: usize> Game<N> {
+    const CARDS_PLAYED_INIT: OrderedHand = fvec![];
+    const STATE_FLIPPED_INIT: FVec<usize, 4> = fvec![];
+
+    pub fn new() -> Self {
+        assert!((3..=6).contains(&N), "Invalid number of players");
 
         Game {
-            scores: smallvec![0; players],
-            player_hands: smallvec![Hand::new(); players],
-            cards_played: smallvec![Default::default(); players],
-            state: Default::default(),
-            pending_event: Default::default(),
-            rng: Default::default(),
+            scores: [0; N],
+            player_hands: [Hand::new(); N],
+            cards_played: [Self::CARDS_PLAYED_INIT; N],
+            state: Playing { current_player: 0 },
+            pending_event: None,
+            rng: rand::thread_rng(),
         }
     }
 
     pub fn scores(&self) -> &[u8] {
-        self.scores.as_slice()
+        &self.scores
     }
 
     pub fn hands(&self) -> &[Hand] {
-        self.player_hands.as_slice()
+        &self.player_hands
     }
 
     pub fn cards_played(&self) -> Vec<&[Card]> {
         self.cards_played
             .iter()
-            .map(SmallVec::as_slice)
+            .map(FVec::as_slice)
             .collect()
     }
 
-    pub fn state(&self) -> &State {
+    pub fn state(&self) -> &State<N> {
         &self.state
     }
 
@@ -328,7 +342,7 @@ impl Game {
                     self.player_hands[*current_player],
                     card
                 );
-                self.cards_played[*current_player].push(card);
+                self.cards_played[*current_player].push(card).unwrap();
                 self.increment_player();
             }
             // Starting bid
@@ -343,7 +357,7 @@ impl Game {
                         highest_bid: n,
                         highest_bidder: *current_player,
                         max_bid: played_count,
-                        passed: Default::default(),
+                        passed: [false; N],
                     };
                     self.pending_event = Some(BidStarted);
                 } else {
@@ -351,7 +365,7 @@ impl Game {
                     self.state = State::Challenging {
                         challenger: *current_player,
                         target: played_count,
-                        flipped: Default::default(),
+                        flipped: [Self::STATE_FLIPPED_INIT; N],
                     };
                     self.pending_event = Some(ChallengeStarted);
                 }
@@ -423,7 +437,7 @@ impl Game {
                         });
                     }
                     Flower => {
-                        flipped[player_index].push(card_index);
+                        flipped[player_index].push(card_index).unwrap();
                         if flipped_count.unwrap() == *target {
                             self.scores[*challenger] += 1;
                             self.pending_event =
@@ -466,9 +480,10 @@ impl Game {
                 passed,
                 ..
             } => {
+                // TODO: make not use vec!
                 assert_ne!(
-                    passed.as_slice(),
-                    &vec![true; player_count],
+                    &passed[..],
+                    vec![true; player_count].as_slice(),
                     "Infinite loop caused by trying to increment player when all players have passed in the bid",
                 );
 
@@ -489,12 +504,12 @@ impl Game {
     }
 
     fn cards_played_count(&self) -> usize {
-        self.cards_played.iter().map(SmallVec::len).sum()
+        self.cards_played.iter().map(|fv| fv.len()).sum()
     }
 
     fn cards_flipped_count(&self) -> Option<usize> {
         if let State::Challenging { flipped, .. } = &self.state {
-            Some(flipped.iter().map(SmallVec::len).sum())
+            Some(flipped.iter().map(|fv| fv.len()).sum())
         } else {
             None
         }
@@ -571,8 +586,8 @@ impl Game {
         let mut number_of_cards_played = self
             .cards_played
             .iter()
-            .map(SmallVec::len)
-            .collect::<SmallVec<[usize; 6]>>();
+            .map(|fv| fv.len())
+            .collect::<FVec<usize, N>>();
         number_of_cards_played.sort_unstable();
         assert!(
             number_of_cards_played[0]
@@ -770,10 +785,10 @@ impl Game {
     }
 
     pub fn create_from(
-        scores: SmallVec<[u8; 6]>,
-        player_hands: SmallVec<[Hand; 6]>,
-        cards_played: SmallVec<[SmallVec<[Card; 4]>; 6]>,
-        state: State,
+        scores: [u8; N],
+        player_hands: [Hand; N],
+        cards_played: [OrderedHand; N],
+        state: State<N>,
         pending_event: Option<Event>,
     ) -> Self {
         let g = Game {

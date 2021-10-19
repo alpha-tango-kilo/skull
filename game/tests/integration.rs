@@ -1,3 +1,19 @@
+use heapless::Vec as FVec;
+
+type OrderedHand = FVec<game::Card, 4>;
+
+macro_rules! fvec {
+    () => {
+        $crate::FVec::new()
+    };
+    ($elem:expr; $n:expr) => {
+        $crate::FVec::from_slice(&[$elem; $n]).unwrap()
+    };
+    ( $( $x:expr ),* ) => {
+        $crate::FVec::from_slice(&[$($x),*]).unwrap()
+    };
+}
+
 mod playing {
     use game::Card::*;
     use game::Event::*;
@@ -6,18 +22,19 @@ mod playing {
 
     use std::convert::TryFrom;
 
-    use smallvec::smallvec;
+    use crate::*;
+    use heapless::Vec as FVec;
 
     #[test]
     fn play_card() {
-        let mut game = Game::new(3);
+        let mut game: Game<3> = Game::new();
         game.respond(PlayCard(Flower));
         assert!(
             matches!(game.state(), &State::Playing { .. }),
             "Game should still be in playing state"
         );
 
-        let mut game = Game::new(3);
+        let mut game: Game<3> = Game::new();
         game.respond(PlayCard(Skull));
         assert!(
             matches!(game.state(), &State::Playing { .. }),
@@ -28,9 +45,9 @@ mod playing {
     #[test]
     fn play_card_or_start_bid() {
         let mut game_one = Game::create_from(
-            smallvec![0; 3],
-            smallvec![Hand::new(); 3],
-            smallvec![smallvec![Flower]; 3],
+            [0; 3],
+            [Hand::new(); 3],
+            [fvec![Flower], fvec![Flower], fvec![Flower]],
             State::Playing { current_player: 0 },
             None,
         );
@@ -68,7 +85,7 @@ mod playing {
                 "Maximum bid set incorrectly when bid started"
             );
             assert_eq!(
-                passed.as_slice(),
+                passed,
                 &[false, false, false],
                 "Players marked as passed when bid started"
             );
@@ -85,14 +102,15 @@ mod playing {
     #[test]
     fn force_bid() {
         // Player only has one flower which is already in play
+        const ONE_FLOWER: OrderedHand = FVec::new();
         let mut game = Game::create_from(
-            smallvec![0; 3],
-            smallvec![
+            [0; 3],
+            [
                 Hand::new(),
                 Hand::new(),
-                Hand::try_from(&[Flower][..]).unwrap()
+                Hand::try_from(&[Flower][..]).unwrap(),
             ],
-            smallvec![smallvec![Flower]; 3],
+            [ONE_FLOWER; 3],
             State::Playing { current_player: 2 },
             None,
         );
@@ -122,7 +140,7 @@ mod playing {
                 "Maximum bid set incorrectly when bid started"
             );
             assert_eq!(
-                passed.as_slice(),
+                passed,
                 &[false, false, false],
                 "Players marked as passed when bid started"
             );
@@ -141,24 +159,23 @@ mod bidding {
     use std::convert::TryFrom;
 
     use game::Event::ChallengeStarted;
-    use smallvec::smallvec;
 
     #[test]
     fn bid_no_challenge() {
         let mut game = Game::create_from(
-            smallvec![0; 3],
-            smallvec![
+            [0; 3],
+            [
                 Hand::new(),
                 Hand::new(),
-                Hand::try_from(&[Flower][..]).unwrap()
+                Hand::try_from(&[Flower][..]).unwrap(),
             ],
-            smallvec![smallvec![Flower]; 3],
+            [fvec![Flower], fvec![Flower], fvec![Flower]],
             State::Bidding {
                 current_bidder: 0,
                 highest_bid: 1,
                 highest_bidder: 2,
                 max_bid: 3,
-                passed: smallvec![false; 3],
+                passed: [false; 3],
             },
             None,
         );
@@ -168,19 +185,19 @@ mod bidding {
     #[test]
     fn bid_starts_challenge() {
         let mut game = Game::create_from(
-            smallvec![0; 3],
-            smallvec![
+            [0; 3],
+            [
                 Hand::new(),
                 Hand::new(),
-                Hand::try_from(&[Flower][..]).unwrap()
+                Hand::try_from(&[Flower][..]).unwrap(),
             ],
-            smallvec![smallvec![Flower]; 3],
+            [fvec![Flower], fvec![Flower], fvec![Flower]],
             State::Bidding {
                 current_bidder: 0,
                 highest_bid: 2,
                 highest_bidder: 2,
                 max_bid: 3,
-                passed: smallvec![false; 3],
+                passed: [false; 3],
             },
             None,
         );
@@ -196,19 +213,19 @@ mod bidding {
     fn pass_no_challenge() {
         let bidder = 0;
         let mut game = Game::create_from(
-            smallvec![0; 3],
-            smallvec![
+            [0; 3],
+            [
                 Hand::new(),
                 Hand::new(),
-                Hand::try_from(&[Flower][..]).unwrap()
+                Hand::try_from(&[Flower][..]).unwrap(),
             ],
-            smallvec![smallvec![Flower]; 3],
+            [fvec![Flower], fvec![Flower], fvec![Flower]],
             State::Bidding {
                 current_bidder: bidder,
                 highest_bid: 2,
                 highest_bidder: 2,
                 max_bid: 3,
-                passed: smallvec![false; 3],
+                passed: [false; 3],
             },
             None,
         );
@@ -229,19 +246,19 @@ mod bidding {
     fn pass_starts_challenge() {
         let bidder = 0; // Changing will break test
         let mut game = Game::create_from(
-            smallvec![0; 3],
-            smallvec![
+            [0; 3],
+            [
                 Hand::new(),
                 Hand::new(),
-                Hand::try_from(&[Flower][..]).unwrap()
+                Hand::try_from(&[Flower][..]).unwrap(),
             ],
-            smallvec![smallvec![Flower]; 3],
+            [fvec![Flower], fvec![Flower], fvec![Flower]],
             State::Bidding {
                 current_bidder: bidder,
                 highest_bid: 2,
                 highest_bidder: 2,
                 max_bid: 3,
-                passed: smallvec![false, true, false],
+                passed: [false, true, false],
             },
             None,
         );
@@ -272,19 +289,19 @@ mod challenging {
         use game::Event::*;
         use game::*;
 
-        use smallvec::smallvec;
-        
+        use crate::*;
+
         #[test]
         fn all_not_win_or_loss() {
             let challenger = 0;
             let mut game = Game::create_from(
-                smallvec![0; 3],
-                smallvec![Hand::new(); 3],
-                smallvec![smallvec![Flower; 2]; 3],
+                [0; 3],
+                [Hand::new(); 3],
+                [fvec![Flower; 2], fvec![Flower; 2], fvec![Flower; 2]],
                 State::Challenging {
                     challenger,
                     target: 5,
-                    flipped: smallvec![smallvec![]; 3],
+                    flipped: [FVec::new(), FVec::new(), FVec::new()],
                 },
                 Some(ChallengeStarted),
             );
@@ -316,13 +333,17 @@ mod challenging {
         fn all_loss() {
             let challenger = 0;
             let mut game = Game::create_from(
-                smallvec![0; 3],
-                smallvec![Hand::new(); 3],
-                smallvec![smallvec![Flower, Skull]; 3],
+                [0; 3],
+                [Hand::new(); 3],
+                [
+                    fvec![Flower, Skull],
+                    fvec![Flower, Skull],
+                    fvec![Flower, Skull],
+                ],
                 State::Challenging {
                     challenger,
                     target: 5,
-                    flipped: smallvec![smallvec![]; 3],
+                    flipped: [fvec![], fvec![], fvec![]],
                 },
                 Some(ChallengeStarted),
             );
@@ -367,13 +388,13 @@ mod challenging {
         fn all_win() {
             let challenger = 0;
             let mut game = Game::create_from(
-                smallvec![0; 3],
-                smallvec![Hand::new(); 3],
-                smallvec![smallvec![Flower; 2]; 3],
+                [0; 3],
+                [Hand::new(); 3],
+                [fvec![Flower; 2], fvec![Flower; 2], fvec![Flower; 2]],
                 State::Challenging {
                     challenger,
                     target: 2,
-                    flipped: smallvec![smallvec![]; 3],
+                    flipped: [fvec![], fvec![], fvec![]],
                 },
                 Some(ChallengeStarted),
             );
@@ -421,13 +442,17 @@ mod challenging {
         fn some_win() {
             let challenger = 0;
             let mut game = Game::create_from(
-                smallvec![0; 3],
-                smallvec![Hand::new(); 3],
-                smallvec![smallvec![Skull, Flower]; 3],
+                [0; 3],
+                [Hand::new(); 3],
+                [
+                    fvec![Skull, Flower],
+                    fvec![Skull, Flower],
+                    fvec![Skull, Flower],
+                ],
                 State::Challenging {
                     challenger,
                     target: 1,
-                    flipped: smallvec![smallvec![]; 3],
+                    flipped: [fvec![], fvec![], fvec![]],
                 },
                 Some(ChallengeStarted),
             );
@@ -475,13 +500,17 @@ mod challenging {
         fn some_loss() {
             let challenger = 0;
             let mut game = Game::create_from(
-                smallvec![0; 3],
-                smallvec![Hand::new(); 3],
-                smallvec![smallvec![Flower, Skull]; 3],
+                [0; 3],
+                [Hand::new(); 3],
+                [
+                    fvec![Skull, Flower],
+                    fvec![Skull, Flower],
+                    fvec![Skull, Flower],
+                ],
                 State::Challenging {
                     challenger,
                     target: 1,
-                    flipped: smallvec![smallvec![]; 3],
+                    flipped: [fvec![], fvec![], fvec![]],
                 },
                 Some(ChallengeStarted),
             );
