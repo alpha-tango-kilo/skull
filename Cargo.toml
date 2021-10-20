@@ -6,6 +6,9 @@ edition = "2018"
 license = "GPL-3.0-only"
 readme = "README.md"
 
+[dependencies]
+game = { path = "./game" }
+
 [workspace]
 members = [
     "game",
