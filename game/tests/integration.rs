@@ -284,6 +284,81 @@ mod bidding {
 
 mod challenging {
     // TODO: players getting out, flipping more than their own cards
+
+    use game::Card::*;
+    use game::Event::*;
+    use game::*;
+
+    #[test]
+    fn challenge_won() {
+        let challenger = 0;
+        let mut game = Game::create_from(
+            [0; 3],
+            [Hand::new(); 3],
+            [fvec![Flower; 2], fvec![Flower; 2], fvec![Flower; 2]],
+            State::Challenging {
+                challenger,
+                target: 5,
+                flipped: [fvec![0, 1], fvec![1, 0], fvec![]],
+            },
+            None,
+        );
+        assert_eq!(
+            game.what_next(),
+            Input {
+                player: challenger,
+                input: InputType::FlipCard,
+            },
+            "Expected game to want challenger to flip a card"
+        );
+        game.respond(Response::Flip(2, 1));
+        assert_eq!(
+            game.what_next(),
+            ChallengeWon(challenger),
+            "ChallengeWon({}) event not fired",
+            challenger,
+        );
+        assert_eq!(
+            game.scores()[challenger], 1,
+            "Challenger not awarded one point"
+        );
+    }
+
+    #[test]
+    fn challenge_won_game_won() {
+        let challenger = 0;
+        let mut game = Game::create_from(
+            [1; 3],
+            [Hand::new(); 3],
+            [fvec![Flower; 2], fvec![Flower; 2], fvec![Flower; 2]],
+            State::Challenging {
+                challenger,
+                target: 5,
+                flipped: [fvec![0, 1], fvec![1, 0], fvec![]],
+            },
+            None,
+        );
+        assert_eq!(
+            game.what_next(),
+            Input {
+                player: challenger,
+                input: InputType::FlipCard,
+            },
+            "Expected game to want challenger to flip a card"
+        );
+        game.respond(Response::Flip(2, 1));
+        assert_eq!(
+            game.what_next(),
+            ChallengeWonGameWon(challenger),
+            "ChallengeWonGameWon({}) event not fired",
+            challenger,
+        );
+        assert_eq!(
+            game.scores()[challenger], 2,
+            "Challenger not awarded one point"
+        );
+    }
+
     mod flipping_own_cards {
         use game::Card::*;
         use game::Event::*;
@@ -439,6 +514,101 @@ mod challenging {
         }
 
         #[test]
+        fn all_win_game() {
+            let challenger = 0;
+            let mut game = Game::create_from(
+                [1; 3],
+                [Hand::new(); 3],
+                [fvec![Flower; 2], fvec![Flower; 2], fvec![Flower; 2]],
+                State::Challenging {
+                    challenger,
+                    target: 2,
+                    flipped: [fvec![], fvec![], fvec![]],
+                },
+                Some(ChallengeStarted),
+            );
+            assert_eq!(
+                game.what_next(),
+                ChallengeStarted,
+                "ChallengeStarted event not emitted (despite being provided)"
+            );
+            // Check challenger's own cards have been automatically flipped
+            if let State::Challenging { flipped, .. } = game.state() {
+                assert_eq!(
+                    flipped[challenger].as_slice(),
+                    &[0, 1],
+                    "Challenger's cards not correctly flipped"
+                );
+            }
+
+            assert_eq!(
+                game.what_next(),
+                ChallengeWonGameWon(challenger),
+                "ChallengeWonGameWon({}) event not emitted",
+                challenger
+            );
+            assert_eq!(
+                game.scores()[challenger], 2,
+                "Challenger not awarded one point"
+            );
+        }
+
+        #[test]
+        fn some_loss() {
+            let challenger = 0;
+            let mut game = Game::create_from(
+                [0; 3],
+                [Hand::new(); 3],
+                [
+                    fvec![Skull, Flower],
+                    fvec![Skull, Flower],
+                    fvec![Skull, Flower],
+                ],
+                State::Challenging {
+                    challenger,
+                    target: 1,
+                    flipped: [fvec![], fvec![], fvec![]],
+                },
+                Some(ChallengeStarted),
+            );
+            assert_eq!(
+                game.what_next(),
+                ChallengeStarted,
+                "ChallengeStarted event not emitted (despite being provided)"
+            );
+            // Check challenger's own cards have been automatically flipped
+            if let State::Challenging { flipped, .. } = game.state() {
+                assert_eq!(
+                    flipped[challenger].as_slice(),
+                    &[1],
+                    "Challenger's cards not correctly flipped"
+                );
+            }
+
+            assert_eq!(
+                game.what_next(),
+                ChallengerChoseSkull {
+                    challenger,
+                    skull_player: challenger,
+                },
+                "ChallengerChoseSkull event not fired"
+            );
+            assert_eq!(
+                game.what_next(),
+                Input {
+                    player: challenger,
+                    input: InputType::PlayCard,
+                },
+                "Playing didn't resume after lost challenge (or didn't resume from correct player)"
+            );
+            assert_eq!(
+                game.hands()[challenger].count(),
+                3,
+                "Losing challenger didn't have card discarded"
+            );
+        }
+
+        #[test]
         fn some_win() {
             let challenger = 0;
             let mut game = Game::create_from(
@@ -497,10 +667,10 @@ mod challenging {
         }
 
         #[test]
-        fn some_loss() {
+        fn some_win_game() {
             let challenger = 0;
             let mut game = Game::create_from(
-                [0; 3],
+                [1; 3],
                 [Hand::new(); 3],
                 [
                     fvec![Skull, Flower],
@@ -530,24 +700,14 @@ mod challenging {
 
             assert_eq!(
                 game.what_next(),
-                ChallengerChoseSkull {
-                    challenger,
-                    skull_player: challenger,
-                },
-                "ChallengerChoseSkull event not fired"
+                ChallengeWonGameWon(challenger),
+                "ChallengeWonGameWon({}) event not emitted",
+                challenger
             );
             assert_eq!(
-                game.what_next(),
-                Input {
-                    player: challenger,
-                    input: InputType::PlayCard,
-                },
-                "Playing didn't resume after lost challenge (or didn't resume from correct player)"
-            );
-            assert_eq!(
-                game.hands()[challenger].count(),
-                3,
-                "Losing challenger didn't have card discarded"
+                game.scores()[challenger],
+                2,
+                "Challenger not awarded one point"
             );
         }
     }
