@@ -1,7 +1,5 @@
 use heapless::Vec as FVec;
 
-type OrderedHand = FVec<game::Card, 4>;
-
 macro_rules! fvec {
     () => {
         $crate::FVec::new()
@@ -23,9 +21,6 @@ mod playing {
     use game::*;
 
     use std::convert::TryFrom;
-
-    use crate::*;
-    use heapless::Vec as FVec;
 
     #[test]
     fn play_card() {
@@ -104,7 +99,6 @@ mod playing {
     #[test]
     fn force_bid() {
         // Player only has one flower which is already in play
-        const ONE_FLOWER: OrderedHand = FVec::new();
         let mut game = Game::create_from(
             [0; 3],
             [
@@ -112,7 +106,7 @@ mod playing {
                 Hand::new(),
                 Hand::try_from(&[Flower][..]).unwrap(),
             ],
-            [ONE_FLOWER; 3],
+            [fvec![], fvec![], fvec![]],
             State::Playing { current_player: 2 },
             None,
         );
@@ -150,6 +144,238 @@ mod playing {
             panic!("Game should still be bidding");
         }
         assert_eq!(game.what_next(), BidStarted, "BidStarted event not fired");
+    }
+
+    #[test]
+    fn out_player_skipped() {
+        println!("Middle of list");
+        let mut game = Game::create_from(
+            [0; 3],
+            [Hand::new(), Hand::default(), Hand::new()],
+            [fvec![Flower], fvec![], fvec![Flower]],
+            State::Playing { current_player: 0 },
+            None,
+        );
+        game.respond(Response::PlayCard(Skull));
+        if let State::Playing { current_player } = game.state() {
+            assert_ne!(
+                *current_player,
+                1,
+                "Current player is out and should have been skipped (game state)"
+            );
+            assert_eq!(
+                *current_player,
+                2,
+                "Current player is incorrect (but not a player with no cards) (game state)"
+            );
+        } else {
+            panic!("Game state changed for no reason");
+        }
+        assert_ne!(
+            game.what_next(),
+            Input {
+                player: 1,
+                input: InputType::PlayCard,
+            },
+            "Current player is out and should have been skipped (input request)"
+        );
+        assert_eq!(
+            game.what_next(),
+            Input {
+                player: 2,
+                input: InputType::PlayCard,
+            },
+            "Current player is incorrect (but not a player with no cards) (input request)"
+        );
+
+        println!("End of list");
+        let mut game = Game::create_from(
+            [0; 3],
+            [Hand::new(), Hand::new(), Hand::default()],
+            [fvec![Flower], fvec![Flower], fvec![]],
+            State::Playing { current_player: 1 },
+            None,
+        );
+        game.respond(Response::PlayCard(Skull));
+        if let State::Playing { current_player } = game.state() {
+            assert_ne!(
+                *current_player,
+                2,
+                "Current player is out and should have been skipped (game state)"
+            );
+            assert_eq!(
+                *current_player,
+                0,
+                "Current player is incorrect (but not a player with no cards) (game state)"
+            );
+        } else {
+            panic!("Game state changed for no reason");
+        }
+        assert_ne!(
+            game.what_next(),
+            Input {
+                player: 2,
+                input: InputType::PlayCard,
+            },
+            "Current player is out and should have been skipped (input request)"
+        );
+        assert_eq!(
+            game.what_next(),
+            Input {
+                player: 0,
+                input: InputType::PlayCard,
+            },
+            "Current player is incorrect (but not a player with no cards) (input request)"
+        );
+
+        println!("Start of list");
+        let mut game = Game::create_from(
+            [0; 3],
+            [Hand::default(), Hand::new(), Hand::new()],
+            [fvec![], fvec![Flower], fvec![Flower]],
+            State::Playing { current_player: 2 },
+            None,
+        );
+        game.respond(Response::PlayCard(Skull));
+        if let State::Playing { current_player } = game.state() {
+            assert_ne!(
+                *current_player,
+                0,
+                "Current player is out and should have been skipped (game state)"
+            );
+            assert_eq!(
+                *current_player,
+                1,
+                "Current player is incorrect (but not a player with no cards) (game state)"
+            );
+        } else {
+            panic!("Game state changed for no reason");
+        }
+        assert_ne!(
+            game.what_next(),
+            Input {
+                player: 0,
+                input: InputType::PlayCard,
+            },
+            "Current player is out and should have been skipped (input request)"
+        );
+        assert_eq!(
+            game.what_next(),
+            Input {
+                player: 1,
+                input: InputType::PlayCard,
+            },
+            "Current player is incorrect (but not a player with no cards) (input request)"
+        );
+    }
+
+    #[test]
+    fn out_players_skipped() {
+        println!("In middle");
+        let mut game = Game::create_from(
+            [0; 4],
+            [Hand::new(), Hand::default(), Hand::default(), Hand::new()],
+            [fvec![Flower], fvec![], fvec![], fvec![Flower]],
+            State::Playing { current_player: 0 },
+            None,
+        );
+        game.respond(Response::PlayCard(Skull));
+        if let State::Playing { current_player } = game.state() {
+            assert_ne!(
+                *current_player,
+                1,
+                "Current player is out and should have been skipped (game state)"
+            );
+            assert_ne!(
+                *current_player,
+                2,
+                "Current player is out and should have been skipped (game state)"
+            );
+            assert_eq!(
+                *current_player,
+                3,
+                "Current player is incorrect (but not a player with no cards) (game state)"
+            );
+        } else {
+            panic!("Game state changed for no reason");
+        }
+        assert_ne!(
+            game.what_next(),
+            Input {
+                player: 1,
+                input: InputType::PlayCard,
+            },
+            "Current player is out and should have been skipped (input request)"
+        );
+        assert_ne!(
+            game.what_next(),
+            Input {
+                player: 2,
+                input: InputType::PlayCard,
+            },
+            "Current player is out and should have been skipped (input request)"
+        );
+        assert_eq!(
+            game.what_next(),
+            Input {
+                player: 3,
+                input: InputType::PlayCard,
+            },
+            "Current player is incorrect (but not a player with no cards) (input request)"
+        );
+
+        println!("At edges");
+        let mut game = Game::create_from(
+            [0; 4],
+            [Hand::default(), Hand::new(), Hand::new(), Hand::default()],
+            [fvec![], fvec![Flower], fvec![Flower], fvec![]],
+            State::Playing { current_player: 2 },
+            None,
+        );
+        game.respond(Response::PlayCard(Skull));
+        if let State::Playing { current_player } = game.state() {
+            assert_ne!(
+                *current_player,
+                3,
+                "Current player is out and should have been skipped (game state)"
+            );
+            assert_ne!(
+                *current_player,
+                0,
+                "Current player is out and should have been skipped (game state)"
+            );
+            assert_eq!(
+                *current_player,
+                1,
+                "Current player is incorrect (but not a player with no cards) (game state)"
+            );
+        } else {
+            panic!("Game state changed for no reason");
+        }
+        assert_ne!(
+            game.what_next(),
+            Input {
+                player: 3,
+                input: InputType::PlayCard,
+            },
+            "Current player is out and should have been skipped (input request)"
+        );
+        assert_ne!(
+            game.what_next(),
+            Input {
+                player: 0,
+                input: InputType::PlayCard,
+            },
+            "Current player is out and should have been skipped (input request)"
+        );
+        assert_eq!(
+            game.what_next(),
+            Input {
+                player: 1,
+                input: InputType::PlayCard,
+            },
+            "Current player is incorrect (but not a player with no cards) (input request)"
+        );
     }
 }
 

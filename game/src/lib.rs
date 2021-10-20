@@ -583,12 +583,14 @@ impl<const N: usize> Game<N> {
         }
 
         // Ensure <=1 difference in number of cards played per player
+        // TODO: check this allows for players to be out
         let mut number_of_cards_played = self
             .cards_played
             .iter()
             .map(|fv| fv.len())
             .collect::<FVec<usize, N>>();
         number_of_cards_played.sort_unstable();
+        // TODO(panic): attempt to subtract with overflow
         assert!(
             number_of_cards_played[0]
                 - number_of_cards_played[self.player_count() - 1]
