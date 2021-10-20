@@ -14,6 +14,8 @@ macro_rules! fvec {
     };
 }
 
+// TODO: players getting out
+
 mod playing {
     use game::Card::*;
     use game::Event::*;
@@ -283,11 +285,146 @@ mod bidding {
 }
 
 mod challenging {
-    // TODO: players getting out, flipping more than their own cards
-
     use game::Card::*;
     use game::Event::*;
     use game::*;
+
+    use heapless::Vec as FVec;
+
+    #[test]
+    fn flipping_other_players_cards() {
+        let challenger = 0;
+        let mut game = Game::create_from(
+            [0; 3],
+            [Hand::new(); 3],
+            [fvec![Flower; 2], fvec![Flower; 2], fvec![Flower, Skull]],
+            State::Challenging {
+                challenger,
+                target: 6,
+                flipped: [fvec![0, 1], fvec![], fvec![]],
+            },
+            None,
+        );
+        assert_eq!(
+            game.what_next(),
+            Input {
+                player: challenger,
+                input: InputType::FlipCard,
+            },
+            "Expected game to want challenger to flip a card (0)"
+        );
+
+        game.respond(Response::Flip(1, 1));
+        if let State::Challenging { flipped, .. } = game.state() {
+            let expected: &[FVec<usize, 4>; 3] =
+                &[fvec![0, 1], fvec![1], fvec![]];
+            assert_eq!(
+                flipped, expected,
+                "Incorrect card marked as flipped (1)"
+            );
+        } else {
+            panic!("Game state not challenging when it was given no reason to change (1)");
+        }
+        assert_eq!(
+            game.what_next(),
+            Input {
+                player: challenger,
+                input: InputType::FlipCard,
+            },
+            "Expected game to want challenger to flip a card (1)"
+        );
+
+        game.respond(Response::Flip(1, 0));
+        if let State::Challenging { flipped, .. } = game.state() {
+            let expected: &[FVec<usize, 4>; 3] =
+                &[fvec![0, 1], fvec![1, 0], fvec![]];
+            assert_eq!(
+                flipped, expected,
+                "Incorrect card marked as flipped (2)"
+            );
+        } else {
+            panic!("Game state not challenging when it was given no reason to change (2)");
+        }
+        assert_eq!(
+            game.what_next(),
+            Input {
+                player: challenger,
+                input: InputType::FlipCard,
+            },
+            "Expected game to want challenger to flip a card (2)"
+        );
+
+        game.respond(Response::Flip(2, 0));
+        if let State::Challenging { flipped, .. } = game.state() {
+            let expected: &[FVec<usize, 4>; 3] =
+                &[fvec![0, 1], fvec![1, 0], fvec![0]];
+            assert_eq!(
+                flipped, expected,
+                "Incorrect card marked as flipped (3)"
+            );
+        } else {
+            panic!("Game state not challenging when it was given no reason to change (3)");
+        }
+        assert_eq!(
+            game.what_next(),
+            Input {
+                player: challenger,
+                input: InputType::FlipCard,
+            },
+            "Expected game to want challenger to flip a card (3)"
+        );
+    }
+
+    #[test]
+    fn challenge_lost() {
+        let challenger = 0;
+        let mut game = Game::create_from(
+            [0; 3],
+            [Hand::new(); 3],
+            [fvec![Flower; 2], fvec![Flower; 2], fvec![Flower, Skull]],
+            State::Challenging {
+                challenger,
+                target: 5,
+                flipped: [fvec![0, 1], fvec![1, 0], fvec![]],
+            },
+            None,
+        );
+        assert_eq!(
+            game.what_next(),
+            Input {
+                player: challenger,
+                input: InputType::FlipCard,
+            },
+            "Expected game to want challenger to flip a card"
+        );
+        game.respond(Response::Flip(2, 1));
+        assert_eq!(
+            game.what_next(),
+            ChallengerChoseSkull {
+                challenger,
+                skull_player: 2,
+            },
+            "ChallengerChoseSkull event not fired",
+        );
+        assert_eq!(
+            game.hands()[challenger].count(),
+            3,
+            "Challenger didn't have a card discarded"
+        );
+        assert_eq!(
+            game.what_next(),
+            Input {
+                player: 2,
+                input: InputType::PlayCard,
+            },
+            "Playing didn't resume after lost challenge (or didn't resume from correct player)"
+        );
+        assert_eq!(
+            game.cards_played(),
+            vec![&[], &[], &[]],
+            "Cards played didn't reset"
+        );
+    }
 
     #[test]
     fn challenge_won() {
@@ -319,7 +456,8 @@ mod challenging {
             challenger,
         );
         assert_eq!(
-            game.scores()[challenger], 1,
+            game.scores()[challenger],
+            1,
             "Challenger not awarded one point"
         );
     }
@@ -354,7 +492,8 @@ mod challenging {
             challenger,
         );
         assert_eq!(
-            game.scores()[challenger], 2,
+            game.scores()[challenger],
+            2,
             "Challenger not awarded one point"
         );
     }
@@ -457,6 +596,11 @@ mod challenging {
                 3,
                 "Losing challenger didn't have card discarded"
             );
+            assert_eq!(
+                game.cards_played(),
+                vec![&[], &[], &[]],
+                "Cards played didn't reset"
+            );
         }
 
         #[test]
@@ -548,7 +692,8 @@ mod challenging {
                 challenger
             );
             assert_eq!(
-                game.scores()[challenger], 2,
+                game.scores()[challenger],
+                2,
                 "Challenger not awarded one point"
             );
         }
@@ -605,6 +750,11 @@ mod challenging {
                 game.hands()[challenger].count(),
                 3,
                 "Losing challenger didn't have card discarded"
+            );
+            assert_eq!(
+                game.cards_played(),
+                vec![&[], &[], &[]],
+                "Cards played didn't reset"
             );
         }
 
