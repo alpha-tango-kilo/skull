@@ -750,6 +750,7 @@ mod challenging {
     use game::*;
 
     use heapless::Vec as FVec;
+    use std::convert::TryFrom;
 
     #[test]
     fn flipping_other_players_cards() {
@@ -883,6 +884,55 @@ mod challenging {
             game.cards_played(),
             vec![&[], &[], &[]],
             "Cards played didn't reset"
+        );
+    }
+
+    #[test]
+    fn challenge_lost_player_out() {
+        let challenger = 2;
+        let mut game = Game::create_from(
+            [0; 3],
+            [Hand::new(), Hand::new(), Hand::try_from(&[Flower][..]).unwrap()],
+            [fvec![Skull], fvec![Flower], fvec![Flower]],
+            State::Challenging {
+                challenger,
+                target: 5,
+                flipped: [fvec![], fvec![], fvec![0]],
+            },
+            None,
+        );
+        game.respond(Response::Flip(0, 0));
+        assert_eq!(
+            game.what_next(),
+            ChallengerChoseSkull {
+                challenger,
+                skull_player: 0,
+            },
+            "ChallengerChoseSkull event not fired",
+        );
+        assert_eq!(
+            game.hands()[challenger].count(),
+            0,
+            "Challenger didn't have a card discarded"
+        );
+        assert_eq!(
+            game.what_next(),
+            PlayerOut(challenger),
+            "{:?} event not fired",
+            PlayerOut(challenger),
+        );
+        assert_eq!(
+            game.cards_played(),
+            vec![&[], &[], &[]],
+            "Cards played didn't reset"
+        );
+        assert_eq!(
+            game.what_next(),
+            Input {
+                player: 2,
+                input: InputType::PlayCard,
+            },
+            "Playing didn't resume after lost challenge (or didn't resume from correct player)"
         );
     }
 
