@@ -626,10 +626,11 @@ impl<const N: usize> Game<N> {
                     current_bidder, highest_bidder,
                     "Current and highest bidder mustn't be same person"
                 );
-                // TODO: at most all but two players can have passed
+                // At most all but two players can have passed
                 assert!(
-                    !passed.iter().all(|b| *b),
-                    "Not all players can have passed"
+                    passed.iter().filter(|b| **b).count()
+                        <= self.remaining_player_count() - 2,
+                    "Too many players have passed"
                 );
             }
             State::Challenging {
@@ -795,6 +796,7 @@ impl<const N: usize> Game<N> {
             rng: Default::default(),
         };
         g.assert_valid();
+        println!("Game is valid");
         g
     }
 }

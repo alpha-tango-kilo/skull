@@ -104,7 +104,7 @@ mod playing {
                 Hand::new(),
                 Hand::try_from(&[Flower][..]).unwrap(),
             ],
-            [fvec![], fvec![], fvec![]],
+            [fvec![Flower], fvec![Flower], fvec![Flower]],
             State::Playing { current_player: 2 },
             None,
         );
@@ -511,11 +511,7 @@ mod bidding {
         println!("Middle of list");
         let mut game = Game::create_from(
             [0; 3],
-            [
-                Hand::new(),
-                Hand::default(),
-                Hand::new(),
-            ],
+            [Hand::new(), Hand::default(), Hand::new()],
             [
                 fvec![Flower, Flower, Skull],
                 fvec![],
@@ -565,11 +561,7 @@ mod bidding {
         println!("End of list");
         let mut game = Game::create_from(
             [0; 3],
-            [
-                Hand::new(),
-                Hand::new(),
-                Hand::default(),
-            ],
+            [Hand::new(), Hand::new(), Hand::default()],
             [
                 fvec![Flower, Flower, Skull],
                 fvec![Flower, Flower, Flower],
@@ -619,11 +611,7 @@ mod bidding {
         println!("Start of list");
         let mut game = Game::create_from(
             [0; 3],
-            [
-                Hand::default(),
-                Hand::new(),
-                Hand::new(),
-            ],
+            [Hand::default(), Hand::new(), Hand::new()],
             [
                 fvec![],
                 fvec![Flower, Flower, Skull],
@@ -676,12 +664,7 @@ mod bidding {
         println!("Middle of list");
         let mut game = Game::create_from(
             [0; 4],
-            [
-                Hand::new(),
-                Hand::default(),
-                Hand::default(),
-                Hand::new(),
-            ],
+            [Hand::new(), Hand::default(), Hand::default(), Hand::new()],
             [
                 fvec![Flower, Flower, Skull],
                 fvec![],
@@ -691,7 +674,7 @@ mod bidding {
             State::Bidding {
                 current_bidder: 0,
                 highest_bid: 2,
-                highest_bidder: 2,
+                highest_bidder: 3,
                 max_bid: 6,
                 passed: [false; 4],
             },
@@ -737,6 +720,70 @@ mod bidding {
             game.what_next(),
             Input {
                 player: 3,
+                input: InputType::BidOrPass,
+            },
+            "Current player is incorrect (but not a player with no cards) (input request)"
+        );
+
+        println!("Ends of list");
+        let mut game = Game::create_from(
+            [0; 4],
+            [Hand::default(), Hand::new(), Hand::new(), Hand::default()],
+            [
+                fvec![],
+                fvec![Flower, Flower, Skull],
+                fvec![Flower, Flower, Flower],
+                fvec![],
+            ],
+            State::Bidding {
+                current_bidder: 2,
+                highest_bid: 2,
+                highest_bidder: 1,
+                max_bid: 6,
+                passed: [false; 4],
+            },
+            None,
+        );
+        game.respond(Response::Bid(3));
+        if let State::Bidding { current_bidder, .. } = game.state() {
+            assert_ne!(
+                *current_bidder,
+                3,
+                "Current player is out and should have been skipped (game state)"
+            );
+            assert_ne!(
+                *current_bidder,
+                0,
+                "Current player is out and should have been skipped (game state)"
+            );
+            assert_eq!(
+                *current_bidder,
+                1,
+                "Current player is incorrect (but not a player with no cards) (game state)"
+            );
+        } else {
+            panic!("Game state changed for no reason");
+        }
+        assert_ne!(
+            game.what_next(),
+            Input {
+                player: 3,
+                input: InputType::BidOrPass,
+            },
+            "Current player is out and should have been skipped (input request)"
+        );
+        assert_ne!(
+            game.what_next(),
+            Input {
+                player: 0,
+                input: InputType::BidOrPass,
+            },
+            "Current player is out and should have been skipped (input request)"
+        );
+        assert_eq!(
+            game.what_next(),
+            Input {
+                player: 1,
                 input: InputType::BidOrPass,
             },
             "Current player is incorrect (but not a player with no cards) (input request)"
@@ -892,11 +939,15 @@ mod challenging {
         let challenger = 2;
         let mut game = Game::create_from(
             [0; 3],
-            [Hand::new(), Hand::new(), Hand::try_from(&[Flower][..]).unwrap()],
+            [
+                Hand::new(),
+                Hand::new(),
+                Hand::try_from(&[Flower][..]).unwrap(),
+            ],
             [fvec![Skull], fvec![Flower], fvec![Flower]],
             State::Challenging {
                 challenger,
-                target: 5,
+                target: 2,
                 flipped: [fvec![], fvec![], fvec![0]],
             },
             None,
