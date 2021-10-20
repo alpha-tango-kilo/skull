@@ -1,17 +1,5 @@
 use heapless::Vec as FVec;
 
-macro_rules! fvec {
-    () => {
-        $crate::FVec::new()
-    };
-    ($elem:expr; $n:expr) => {
-        $crate::FVec::from_slice(&[$elem; $n]).unwrap()
-    };
-    ( $( $x:expr ),* ) => {
-        $crate::FVec::from_slice(&[$($x),*]).unwrap()
-    };
-}
-
 mod playing {
     use game::Card::*;
     use game::Event::*;
