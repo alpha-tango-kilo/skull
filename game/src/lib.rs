@@ -228,7 +228,7 @@ pub enum Response {
 pub struct Game<const N: usize> {
     scores: [u8; N],                        // public via getter
     player_hands: [Hand; N],                // public via getter
-    cards_played: [OrderedHand; N],       // FVec<[Card; 4]> is ordered bottom -> top
+    cards_played: [OrderedHand; N],         // FVec<[Card; 4]> is ordered bottom -> top
     state: State<N>,                        // public via getter
     pending_event: Option<Event>,
     rng: ThreadRng,
@@ -519,21 +519,6 @@ impl<const N: usize> Game<N> {
     // When I actually hit stable releases, this should only be needed for ensuring
     // Game::create_from isn't being abused. For now though, it'll be used a lot
     fn assert_valid(&self) {
-        // Ensure numbers of players are consistent across everything except state
-        assert!(
-            (3..=6).contains(&self.scores.len()),
-            "Invalid number of players"
-        );
-        assert_eq!(
-            self.scores.len(),
-            self.player_hands.len(),
-            "Inconsistent number of players"
-        );
-        assert_eq!(
-            self.scores.len(),
-            self.cards_played.len(),
-            "Inconsistent number of players"
-        );
         assert!(
             !self.scores.iter().any(|s| *s > 2),
             "No one should have a score of more than 2"
@@ -582,18 +567,19 @@ impl<const N: usize> Game<N> {
             );
         }
 
-        // Ensure <=1 difference in number of cards played per player
-        // TODO: check this allows for players to be out
+        // Ensure <=1 difference in number of cards played per player, ignoring
+        // players that are out
         let mut number_of_cards_played = self
             .cards_played
             .iter()
-            .map(|fv| fv.len())
+            .enumerate()
+            .filter(|(i, _)| !self.is_player_out(*i))
+            .map(|(_, fv)| fv.len())
             .collect::<FVec<usize, N>>();
         number_of_cards_played.sort_unstable();
-        // TODO(panic): attempt to subtract with overflow
         assert!(
-            number_of_cards_played[0]
-                - number_of_cards_played[self.player_count() - 1]
+            number_of_cards_played[self.remaining_player_count() - 1]
+                - number_of_cards_played[0]
                 <= 1,
             "Some players have played 2+ more cards than others",
         );
@@ -651,7 +637,10 @@ impl<const N: usize> Game<N> {
                 target,
                 flipped,
             } => {
-                // TODO: check if challenger is out (if possible?)
+                assert!(
+                    !self.is_player_out(*challenger),
+                    "Challenger mustn't be out"
+                );
                 assert!(
                     *challenger < self.scores.len(),
                     "Challenger index out of range"
@@ -793,6 +782,10 @@ impl<const N: usize> Game<N> {
         state: State<N>,
         pending_event: Option<Event>,
     ) -> Self {
+        assert!(
+            (3..=6).contains(&N),
+            "Invalid number of players"
+        );
         let g = Game {
             scores,
             player_hands,
