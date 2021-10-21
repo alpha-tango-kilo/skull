@@ -1082,6 +1082,7 @@ mod challenging {
         use game::*;
 
         use crate::*;
+        use std::convert::TryFrom;
 
         #[test]
         fn all_not_win_or_loss() {
@@ -1436,6 +1437,78 @@ mod challenging {
                 game.scores()[challenger],
                 2,
                 "Challenger not awarded one point"
+            );
+        }
+
+        #[test]
+        fn player_out() {
+            let challenger = 0;
+            let mut game = Game::create_from(
+                [1; 3],
+                [
+                    Hand::try_from(&[Skull][..]).unwrap(),
+                    Hand::new(),
+                    Hand::new(),
+                ],
+                [fvec![Skull], fvec![Flower, Skull], fvec![Flower, Skull]],
+                State::Challenging {
+                    challenger,
+                    target: 3,
+                    flipped: [fvec![], fvec![], fvec![]],
+                },
+                Some(ChallengeStarted),
+            );
+            assert_eq!(
+                game.what_next(),
+                ChallengeStarted,
+                "ChallengeStarted event not emitted (despite being provided)"
+            );
+            // Check challenger's own cards have been automatically flipped
+            if let State::Challenging { flipped, .. } = game.state() {
+                assert_eq!(
+                    flipped[challenger].as_slice(),
+                    &[0],
+                    "Challenger's cards not correctly flipped"
+                );
+            }
+
+            assert_eq!(
+                game.what_next(),
+                ChallengerChoseSkull {
+                    challenger,
+                    skull_player: challenger,
+                },
+                "ChallengerChoseSkull event not fired"
+            );
+            assert_eq!(
+                game.cards_played(),
+                vec![&[], &[], &[]],
+                "Cards played didn't reset"
+            );
+            assert!(
+                game.hands()[challenger].empty(),
+                "Not all of the challenger's cards have been discarded"
+            );
+            assert_eq!(
+                game.what_next(),
+                PlayerOut(challenger),
+                "PlayerOut event not fired"
+            );
+            assert_ne!(
+                game.what_next(),
+                Input {
+                    player: challenger,
+                    input: InputType::PlayCard,
+                },
+                "Playing resumed from challenger, who is out"
+            );
+            assert_eq!(
+                game.what_next(),
+                Input {
+                    player: 1,
+                    input: InputType::PlayCard,
+                },
+                "Playing didn't resume after lost challenge (or didn't resume from correct player)"
             );
         }
     }
