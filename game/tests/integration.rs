@@ -950,6 +950,7 @@ mod challenging {
     #[test]
     fn challenge_lost_player_out() {
         let challenger = 2;
+        let skull_player = 0;
         let mut game = Game::create_from(
             [0; 3],
             [
@@ -971,7 +972,7 @@ mod challenging {
             game.what_next(),
             ChallengerChoseSkull {
                 challenger,
-                skull_player: 0,
+                skull_player,
             },
             "ChallengerChoseSkull event not fired",
         );
@@ -994,7 +995,7 @@ mod challenging {
         assert_eq!(
             game.what_next(),
             Input {
-                player: 2,
+                player: skull_player,
                 input: InputType::PlayCard,
             },
             "Playing didn't resume after lost challenge (or didn't resume from correct player)"
