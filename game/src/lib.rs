@@ -206,7 +206,7 @@ pub enum Event {
         challenger: usize,
         skull_player: usize,
     },
-    PlayerOut(usize), // TODO: implement this
+    PlayerOut(usize),
     ChallengeWon(usize),
     ChallengeWonGameWon(usize),
 }

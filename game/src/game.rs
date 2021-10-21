@@ -53,18 +53,29 @@ impl<const N: usize> Game<N> {
             Some(event) => {
                 match event {
                     ChallengeStarted => todo!("Flip own cards / Check for own skulls"),
-                    ChallengerChoseSkull { skull_player, .. } => {
+                    ChallengerChoseSkull { challenger, skull_player } => {
                         // Transition back to playing
                         self.state = State::Playing { current_player: skull_player };
+                        self.reset_cards_played();
+                        if !self.is_player_out(challenger) {
+                            self.pending_event = None;
+                        } else {
+                            // Got themselves out, sad horn (skip them)
+                            if challenger == skull_player {
+                                self.increment_player();
+                            }
+                            self.pending_event = Some(PlayerOut(challenger));
+                        }
                     }
                     ChallengeWon(player) => {
                         // Transition back to playing
                         self.state = State::Playing { current_player: player };
+                        self.reset_cards_played();
+                        self.pending_event = None;
                     }
                     Input { .. } => unreachable!("Input events should never be stored as a pending event"),
-                    _ => {} // No-ops: BidStarted, ChallengeWonGameWon
+                    _ => self.pending_event = None, // No-ops: BidStarted, ChallengeWonGameWon, PlayerOut
                 }
-                self.pending_event = None;
                 event
             }
             None => Event::Input {
@@ -261,6 +272,7 @@ impl<const N: usize> Game<N> {
     fn increment_player(&mut self) {
         let player_count = self.player_count();
         let state = &mut self.state;
+        // TODO: skip players that are out
         match state {
             Playing { current_player } => *current_player = (*current_player + 1) % player_count,
             Bidding {
@@ -300,6 +312,11 @@ impl<const N: usize> Game<N> {
         } else {
             None
         }
+    }
+
+    fn reset_cards_played(&mut self) {
+        const EMPTY: OrderedHand = fvec![];
+        self.cards_played = [EMPTY; N];
     }
 
     // Motto: assume nothing, check if game state is valid
