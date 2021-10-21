@@ -11,14 +11,16 @@ mod playing {
     #[test]
     fn play_card() {
         let mut game: Game<3> = Game::new();
-        game.respond(PlayCard(Flower));
+        game.respond(PlayCard(Flower))
+            .expect("Game should have accepted the response");
         assert!(
             matches!(game.state(), &State::Playing { .. }),
             "Game should still be in playing state"
         );
 
         let mut game: Game<3> = Game::new();
-        game.respond(PlayCard(Skull));
+        game.respond(PlayCard(Skull))
+            .expect("Game should have accepted the response");
         assert!(
             matches!(game.state(), &State::Playing { .. }),
             "Game should still be in playing state"
@@ -36,13 +38,17 @@ mod playing {
         );
         let mut game_two = game_one.clone();
 
-        game_one.respond(PlayCard(Flower));
+        game_one
+            .respond(PlayCard(Flower))
+            .expect("Game should have accepted the response");
         assert!(
             matches!(game_one.state(), &State::Playing { .. }),
             "Game should still be in playing state"
         );
 
-        game_two.respond(Bid(2));
+        game_two
+            .respond(Bid(2))
+            .expect("Game should have accepted the response");
         if let State::Bidding {
             current_bidder,
             highest_bid: current_bid,
@@ -96,7 +102,8 @@ mod playing {
             State::Playing { current_player: 2 },
             None,
         );
-        game.respond(Bid(2));
+        game.respond(Bid(2))
+            .expect("Game should have accepted the response");
         if let State::Bidding {
             current_bidder,
             highest_bid: current_bid,
@@ -142,7 +149,8 @@ mod playing {
             State::Playing { current_player: 0 },
             None,
         );
-        game.respond(Response::PlayCard(Skull));
+        game.respond(Response::PlayCard(Skull))
+            .expect("Game should have accepted the response");
         if let State::Playing { current_player } = game.state() {
             assert_ne!(
                 *current_player,
@@ -182,7 +190,8 @@ mod playing {
             State::Playing { current_player: 1 },
             None,
         );
-        game.respond(Response::PlayCard(Skull));
+        game.respond(Response::PlayCard(Skull))
+            .expect("Game should have accepted the response");
         if let State::Playing { current_player } = game.state() {
             assert_ne!(
                 *current_player,
@@ -222,7 +231,8 @@ mod playing {
             State::Playing { current_player: 2 },
             None,
         );
-        game.respond(Response::PlayCard(Skull));
+        game.respond(Response::PlayCard(Skull))
+            .expect("Game should have accepted the response");
         if let State::Playing { current_player } = game.state() {
             assert_ne!(
                 *current_player,
@@ -265,7 +275,8 @@ mod playing {
             State::Playing { current_player: 0 },
             None,
         );
-        game.respond(Response::PlayCard(Skull));
+        game.respond(Response::PlayCard(Skull))
+            .expect("Game should have accepted the response");
         if let State::Playing { current_player } = game.state() {
             assert_ne!(
                 *current_player,
@@ -318,7 +329,8 @@ mod playing {
             State::Playing { current_player: 2 },
             None,
         );
-        game.respond(Response::PlayCard(Skull));
+        game.respond(Response::PlayCard(Skull))
+            .expect("Game should have accepted the response");
         if let State::Playing { current_player } = game.state() {
             assert_ne!(
                 *current_player,
@@ -392,7 +404,8 @@ mod bidding {
             },
             None,
         );
-        game.respond(Bid(2));
+        game.respond(Bid(2))
+            .expect("Game should have accepted the response");
     }
 
     #[test]
@@ -414,7 +427,8 @@ mod bidding {
             },
             None,
         );
-        game.respond(Bid(3));
+        game.respond(Bid(3))
+            .expect("Game should have accepted the response");
         assert_eq!(
             game.what_next(),
             ChallengeStarted,
@@ -442,7 +456,8 @@ mod bidding {
             },
             None,
         );
-        game.respond(Pass);
+        game.respond(Pass)
+            .expect("Game should have accepted the response");
 
         if let State::Bidding { passed, .. } = game.state() {
             assert!(
@@ -475,7 +490,8 @@ mod bidding {
             },
             None,
         );
-        game.respond(Pass);
+        game.respond(Pass)
+            .expect("Game should have accepted the response");
 
         if let State::Challenging {
             challenger, target, ..
@@ -514,7 +530,8 @@ mod bidding {
             },
             None,
         );
-        game.respond(Response::Bid(3));
+        game.respond(Response::Bid(3))
+            .expect("Game should have accepted the response");
         if let State::Bidding { current_bidder, .. } = game.state() {
             assert_ne!(
                 *current_bidder,
@@ -564,7 +581,8 @@ mod bidding {
             },
             None,
         );
-        game.respond(Response::Bid(3));
+        game.respond(Response::Bid(3))
+            .expect("Game should have accepted the response");
         if let State::Bidding { current_bidder, .. } = game.state() {
             assert_ne!(
                 *current_bidder,
@@ -614,7 +632,8 @@ mod bidding {
             },
             None,
         );
-        game.respond(Response::Bid(3));
+        game.respond(Response::Bid(3))
+            .expect("Game should have accepted the response");
         if let State::Bidding { current_bidder, .. } = game.state() {
             assert_ne!(
                 *current_bidder,
@@ -668,7 +687,8 @@ mod bidding {
             },
             None,
         );
-        game.respond(Response::Bid(3));
+        game.respond(Response::Bid(3))
+            .expect("Game should have accepted the response");
         if let State::Bidding { current_bidder, .. } = game.state() {
             assert_ne!(
                 *current_bidder,
@@ -732,7 +752,8 @@ mod bidding {
             },
             None,
         );
-        game.respond(Response::Bid(3));
+        game.respond(Response::Bid(3))
+            .expect("Game should have accepted the response");
         if let State::Bidding { current_bidder, .. } = game.state() {
             assert_ne!(
                 *current_bidder,
@@ -810,7 +831,8 @@ mod challenging {
             "Expected game to want challenger to flip a card (0)"
         );
 
-        game.respond(Response::Flip(1, 1));
+        game.respond(Response::Flip(1, 1))
+            .expect("Game should have accepted the response");
         if let State::Challenging { flipped, .. } = game.state() {
             let expected: &[FVec<usize, 4>; 3] =
                 &[fvec![0, 1], fvec![1], fvec![]];
@@ -830,7 +852,8 @@ mod challenging {
             "Expected game to want challenger to flip a card (1)"
         );
 
-        game.respond(Response::Flip(1, 0));
+        game.respond(Response::Flip(1, 0))
+            .expect("Game should have accepted the response");
         if let State::Challenging { flipped, .. } = game.state() {
             let expected: &[FVec<usize, 4>; 3] =
                 &[fvec![0, 1], fvec![1, 0], fvec![]];
@@ -850,7 +873,8 @@ mod challenging {
             "Expected game to want challenger to flip a card (2)"
         );
 
-        game.respond(Response::Flip(2, 0));
+        game.respond(Response::Flip(2, 0))
+            .expect("Game should have accepted the response");
         if let State::Challenging { flipped, .. } = game.state() {
             let expected: &[FVec<usize, 4>; 3] =
                 &[fvec![0, 1], fvec![1, 0], fvec![0]];
@@ -893,7 +917,8 @@ mod challenging {
             },
             "Expected game to want challenger to flip a card"
         );
-        game.respond(Response::Flip(2, 1));
+        game.respond(Response::Flip(2, 1))
+            .expect("Game should have accepted the response");
         assert_eq!(
             game.what_next(),
             ChallengerChoseSkull {
@@ -940,7 +965,8 @@ mod challenging {
             },
             None,
         );
-        game.respond(Response::Flip(0, 0));
+        game.respond(Response::Flip(0, 0))
+            .expect("Game should have accepted the response");
         assert_eq!(
             game.what_next(),
             ChallengerChoseSkull {
@@ -997,7 +1023,8 @@ mod challenging {
             },
             "Expected game to want challenger to flip a card"
         );
-        game.respond(Response::Flip(2, 1));
+        game.respond(Response::Flip(2, 1))
+            .expect("Game should have accepted the response");
         assert_eq!(
             game.what_next(),
             ChallengeWon(challenger),
@@ -1033,7 +1060,8 @@ mod challenging {
             },
             "Expected game to want challenger to flip a card"
         );
-        game.respond(Response::Flip(2, 1));
+        game.respond(Response::Flip(2, 1))
+            .expect("Game should have accepted the response");
         assert_eq!(
             game.what_next(),
             ChallengeWonGameWon(challenger),

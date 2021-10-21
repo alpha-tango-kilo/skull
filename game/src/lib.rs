@@ -227,3 +227,30 @@ pub enum Response {
     Pass,
     Flip(usize, usize),
 }
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum RespondError {
+    PendingEvent,
+    IncorrectInputType(InputType),
+}
+
+impl fmt::Display for RespondError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use InputType::*;
+        use RespondError::*;
+        match self {
+            PendingEvent => write!(f, "There's a pending event that needs to be processed using Game.what_next()"),
+            IncorrectInputType(it) => {
+                write!(f, "Incorrect input type, expected {}", match it {
+                    PlayCard => "PlayCard",
+                    PlayCardOrStartBid => "PlayCard or Bid",
+                    StartBid => "Bid",
+                    BidOrPass => "Bid or Pass",
+                    FlipCard => "Flip",
+                })
+            }
+        }
+    }
+}
+
+impl std::error::Error for RespondError {}

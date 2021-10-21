@@ -94,7 +94,12 @@ impl<const N: usize> Game<N> {
         }
     }
 
-    pub fn respond(&mut self, response: Response) {
+    pub fn respond(&mut self, response: Response) -> Result<(), RespondError> {
+        use RespondError::*;
+        if self.pending_event.is_some() {
+            return Err(PendingEvent)
+        }
+
         // These both have to be worked out before we start working mutably
         // with Game, even though they aren't always used
         let player_count = self.player_count();
@@ -226,8 +231,15 @@ impl<const N: usize> Game<N> {
                     }
                 }
             }
-            _ => panic!("Invalid response to given input type"),
+            _ => {
+                if let Input { input, .. } = self.what_next() {
+                    return Err(IncorrectInputType(input));
+                } else {
+                    unreachable!("Game must be waiting on an input at there's no pending event");
+                }
+            },
         }
+        Ok(())
     }
 
     pub fn player_count(&self) -> usize {
