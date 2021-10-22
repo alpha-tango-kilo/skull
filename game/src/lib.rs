@@ -103,9 +103,15 @@ impl Hand {
             "Tried to discard card with none in hand"
         );
 
-        let choice = rng.gen_range(0..=self.count());
-        if choice == 0 && self.skull {
-            self.skull = false;
+        if self.skull && self.flowers > 0 {
+            let choice = rng.gen_range(0..=self.count());
+            if choice == 0 {
+                self.skull = false;
+            } else {
+                self.flowers -= 1;
+            }
+        } else if self.skull {
+            self.skull = false
         } else {
             self.flowers -= 1;
         }

@@ -1284,7 +1284,7 @@ mod challenging {
                 [0; 3],
                 [Hand::new(); 3],
                 [
-                    fvec![Skull, Flower],
+                    fvec![Flower, Skull],
                     fvec![Skull, Flower],
                     fvec![Skull, Flower],
                 ],

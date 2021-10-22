@@ -2,10 +2,10 @@ use crate::*;
 
 #[derive(Debug, Clone)]
 pub struct Game<const N: usize> {
-    scores: [u8; N],                        // public via getter
-    player_hands: [Hand; N],                // public via getter
-    cards_played: [OrderedHand; N],         // FVec<[Card; 4]> is ordered bottom -> top
-    state: State<N>,                        // public via getter
+    scores: [u8; N],                // public via getter
+    player_hands: [Hand; N],        // public via getter
+    cards_played: [OrderedHand; N], // FVec<[Card; 4]> is ordered bottom -> top
+    state: State<N>,                // public via getter
     pending_event: Option<Event>,
     rng: ThreadRng,
 }
@@ -36,10 +36,7 @@ impl<const N: usize> Game<N> {
     }
 
     pub fn cards_played(&self) -> Vec<&[Card]> {
-        self.cards_played
-            .iter()
-            .map(FVec::as_slice)
-            .collect()
+        self.cards_played.iter().map(FVec::as_slice).collect()
     }
 
     pub fn state(&self) -> &State<N> {
@@ -49,36 +46,109 @@ impl<const N: usize> Game<N> {
     pub fn what_next(&mut self) -> Event {
         use Event::*;
         use InputType::*;
-        match self.pending_event {
-            Some(event) => {
-                match event {
-                    ChallengeStarted => todo!("Flip own cards / Check for own skulls"),
-                    ChallengerChoseSkull { challenger, skull_player } => {
-                        // Transition back to playing
-                        self.state = State::Playing { current_player: skull_player };
-                        self.reset_cards_played();
-                        if !self.is_player_out(challenger) {
-                            self.pending_event = None;
-                        } else {
-                            // Got themselves out, sad horn (skip them)
-                            if challenger == skull_player {
-                                self.increment_player();
-                            }
-                            self.pending_event = Some(PlayerOut(challenger));
+        // if let uses less indendation than match
+        if let Some(event) = self.pending_event {
+            match event {
+                ChallengeStarted => {
+                    if let State::Challenging {
+                        challenger,
+                        target,
+                        flipped,
+                    } = &mut self.state
+                    {
+                        // Pull out self.cards_played or else the compiler
+                        // will get aggro later
+                        let challenger_cards_played =
+                            &self.cards_played[*challenger];
+                        let challenger_cards_played_count =
+                            challenger_cards_played.len();
+                        // Flip own cards
+                        /*
+                        Offset ensures only the correct players cards are
+                        flipped, in the event that only some of the
+                        player's cards need flipping. If target >
+                        challenger_cards_played, then the offset will be
+                        0 and all cards will be flipped.
+                         */
+                        let offset = challenger_cards_played_count
+                            .saturating_sub(*target);
+
+                        flipped[*challenger] = (offset
+                            ..challenger_cards_played_count)
+                            .into_iter()
+                            .collect();
+
+                        /*
+                        Check if any of those flipped cards are a skull
+                        No point in making this a function as we're only
+                        going to be doing this one card at a time in future
+                        */
+                        let flipped_skull =
+                            flipped[*challenger].iter().any(|index| {
+                                println!(
+                                    "Card at index {} is a {}",
+                                    index, challenger_cards_played[*index]
+                                );
+                                matches!(challenger_cards_played[*index], Skull)
+                            });
+                        if flipped_skull {
+                            self.player_hands[*challenger]
+                                .discard_one(&mut self.rng);
+                            self.pending_event = Some(ChallengerChoseSkull {
+                                challenger: *challenger,
+                                skull_player: *challenger,
+                            });
+                        } else if *target <= challenger_cards_played_count {
+                            // If we only need to flip (some of) the
+                            // challenger's cards, and have found no skulls,
+                            // they've won the challenge
+                            self.scores[*challenger] += 1;
+                            self.pending_event =
+                                if self.scores[*challenger] != 2 {
+                                    Some(ChallengeWon(*challenger))
+                                } else {
+                                    Some(ChallengeWonGameWon(*challenger))
+                                };
                         }
+                    } else {
+                        panic!("ChallengeStarted pending event but state isn't Challenging");
                     }
-                    ChallengeWon(player) => {
-                        // Transition back to playing
-                        self.state = State::Playing { current_player: player };
-                        self.reset_cards_played();
-                        self.pending_event = None;
-                    }
-                    Input { .. } => unreachable!("Input events should never be stored as a pending event"),
-                    _ => self.pending_event = None, // No-ops: BidStarted, ChallengeWonGameWon, PlayerOut
                 }
-                event
+                ChallengerChoseSkull {
+                    challenger,
+                    skull_player,
+                } => {
+                    // Transition back to playing
+                    self.state = State::Playing {
+                        current_player: skull_player,
+                    };
+                    self.reset_cards_played();
+                    if !self.is_player_out(challenger) {
+                        self.pending_event = None;
+                    } else {
+                        // Got themselves out, sad horn (skip them)
+                        if challenger == skull_player {
+                            self.increment_player();
+                        }
+                        self.pending_event = Some(PlayerOut(challenger));
+                    }
+                }
+                ChallengeWon(player) => {
+                    // Transition back to playing
+                    self.state = State::Playing {
+                        current_player: player,
+                    };
+                    self.reset_cards_played();
+                    self.pending_event = None;
+                }
+                Input { .. } => unreachable!(
+                    "Input events should never be stored as a pending event"
+                ),
+                _ => self.pending_event = None, // No-ops: BidStarted, ChallengeWonGameWon, PlayerOut
             }
-            None => Event::Input {
+            event
+        } else {
+            Event::Input {
                 player: self.player(),
                 input: match self.state {
                     Playing { current_player } => {
@@ -101,14 +171,14 @@ impl<const N: usize> Game<N> {
                     Bidding { .. } => BidOrPass,
                     Challenging { .. } => FlipCard,
                 },
-            },
+            }
         }
     }
 
     pub fn respond(&mut self, response: Response) -> Result<(), RespondError> {
         use RespondError::*;
         if self.pending_event.is_some() {
-            return Err(PendingEvent)
+            return Err(PendingEvent);
         }
 
         // These both have to be worked out before we start working mutably
@@ -119,9 +189,7 @@ impl<const N: usize> Game<N> {
 
         let Game { state, .. } = self;
 
-        // TODO: starting a challenge (checking for own skulls)
         // TODO: account for players that are out
-        // TODO: card discarding
         use Response::*;
         // Match against state & response instead of input?
         match (state, response) {
@@ -248,7 +316,7 @@ impl<const N: usize> Game<N> {
                 } else {
                     unreachable!("Game must be waiting on an input at there's no pending event");
                 }
-            },
+            }
         }
         Ok(())
     }
@@ -494,7 +562,8 @@ impl<const N: usize> Game<N> {
                             (offset..self.player_hands[*challenger].count() as usize).collect::<Vec<_>>().as_slice(),
                             "Challenger hasn't flipped their own cards that they are required to flip"
                         );
-                        if self.cards_played[*challenger][offset..].contains(&Skull)
+                        if self.cards_played[*challenger][offset..]
+                            .contains(&Skull)
                         {
                             self.assert_self_skull_correctly_declared();
                         }
@@ -567,9 +636,9 @@ impl<const N: usize> Game<N> {
     // Only call if you know a skull has been turned that was played by the challenger
     fn assert_self_skull_correctly_declared(&self) {
         if let Some(ChallengerChoseSkull {
-                        challenger,
-                        skull_player,
-                    }) = self.pending_event
+            challenger,
+            skull_player,
+        }) = self.pending_event
         {
             assert_eq!(
                 challenger, skull_player,
@@ -587,10 +656,7 @@ impl<const N: usize> Game<N> {
         state: State<N>,
         pending_event: Option<Event>,
     ) -> Self {
-        assert!(
-            (3..=6).contains(&N),
-            "Invalid number of players"
-        );
+        assert!((3..=6).contains(&N), "Invalid number of players");
         let g = Game {
             scores,
             player_hands,
@@ -612,9 +678,9 @@ impl<const N: usize> Default for Game<N> {
 }
 
 fn has_unique_elements<T>(iter: T) -> bool
-    where
-        T: IntoIterator,
-        T::Item: Eq + std::hash::Hash,
+where
+    T: IntoIterator,
+    T::Item: Eq + std::hash::Hash,
 {
     let mut uniq = std::collections::HashSet::new();
     iter.into_iter().all(move |x| uniq.insert(x))
