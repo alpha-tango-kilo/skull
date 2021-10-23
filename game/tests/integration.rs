@@ -1,5 +1,7 @@
 use heapless::Vec as FVec;
 
+// TODO: Game::respond Errs
+
 mod playing {
     use game::Card::*;
     use game::Event::*;
@@ -169,7 +171,7 @@ mod playing {
             game.what_next(),
             Input {
                 player: 1,
-                input: InputType::PlayCard,
+                input: InputType::PlayCardOrStartBid,
             },
             "Current player is out and should have been skipped (input request)"
         );
@@ -177,7 +179,7 @@ mod playing {
             game.what_next(),
             Input {
                 player: 2,
-                input: InputType::PlayCard,
+                input: InputType::PlayCardOrStartBid,
             },
             "Current player is incorrect (but not a player with no cards) (input request)"
         );
@@ -210,7 +212,7 @@ mod playing {
             game.what_next(),
             Input {
                 player: 2,
-                input: InputType::PlayCard,
+                input: InputType::PlayCardOrStartBid,
             },
             "Current player is out and should have been skipped (input request)"
         );
@@ -218,7 +220,7 @@ mod playing {
             game.what_next(),
             Input {
                 player: 0,
-                input: InputType::PlayCard,
+                input: InputType::PlayCardOrStartBid,
             },
             "Current player is incorrect (but not a player with no cards) (input request)"
         );
@@ -251,7 +253,7 @@ mod playing {
             game.what_next(),
             Input {
                 player: 0,
-                input: InputType::PlayCard,
+                input: InputType::PlayCardOrStartBid,
             },
             "Current player is out and should have been skipped (input request)"
         );
@@ -259,7 +261,7 @@ mod playing {
             game.what_next(),
             Input {
                 player: 1,
-                input: InputType::PlayCard,
+                input: InputType::PlayCardOrStartBid,
             },
             "Current player is incorrect (but not a player with no cards) (input request)"
         );

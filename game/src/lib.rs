@@ -1,4 +1,5 @@
 mod game;
+mod hand;
 
 use heapless::Vec as FVec; // Fixed Vec
 
@@ -13,6 +14,7 @@ use Event::*;
 use State::*;
 
 pub use game::Game;
+pub use hand::Hand;
 
 type OrderedHand = FVec<Card, 4>;
 
@@ -39,145 +41,6 @@ impl fmt::Display for Card {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Reuse Debug impl
         write!(f, "{:?}", self)
-    }
-}
-
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
-pub struct Hand {
-    skull: bool,
-    flowers: u8,
-}
-
-impl Hand {
-    // WARNING: new() and default() differ
-    pub fn new() -> Self {
-        Hand {
-            skull: true,
-            flowers: 3,
-        }
-    }
-
-    pub fn has_skull(&self) -> bool {
-        self.skull
-    }
-
-    pub fn has(&self, other: Card) -> bool {
-        use Card::*;
-        match other {
-            Skull => self.has_skull(),
-            Flower => self.flowers > 0,
-        }
-    }
-
-    pub fn count(&self) -> u8 {
-        self.flowers + self.skull as u8
-    }
-
-    pub fn empty(&self) -> bool {
-        self.count() == 0
-    }
-
-    pub fn as_vec(&self) -> Vec<Card> {
-        let mut v = vec![Card::Flower; self.flowers as usize];
-        if self.skull {
-            v.insert(0, Card::Skull)
-        }
-        v
-    }
-
-    pub fn can_play(&self) -> Hand {
-        // Assumes self is a valid hand
-        (Hand::new() - *self).unwrap()
-    }
-
-    fn is_superset_of(&self, other: Hand) -> bool {
-        let skull_ok =
-            self.skull == other.skull || (self.skull && !other.skull);
-        let flowers_ok = self.flowers >= other.flowers;
-        skull_ok && flowers_ok
-    }
-
-    fn discard_one(&mut self, rng: &mut ThreadRng) {
-        debug_assert!(
-            self.count() > 0,
-            "Tried to discard card with none in hand"
-        );
-
-        if self.skull && self.flowers > 0 {
-            let choice = rng.gen_range(0..=self.count());
-            if choice == 0 {
-                self.skull = false;
-            } else {
-                self.flowers -= 1;
-            }
-        } else if self.skull {
-            self.skull = false
-        } else {
-            self.flowers -= 1;
-        }
-    }
-
-    pub(crate) fn assert_valid(&self) {
-        assert!(self.flowers < 4, "Too many flowers in hand");
-    }
-}
-
-impl fmt::Display for Hand {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?}", self.as_vec())
-    }
-}
-
-impl std::ops::Sub for Hand {
-    type Output = Result<Hand, &'static str>;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        if !self.is_superset_of(rhs) {
-            Err("RHS has cards LHS doesn't have")
-        } else {
-            /*
-            Truth table for skull:
-            LHS     RHS     Output
-             F       F        F
-             F       T        Err
-             T       F        T
-             T       T        F
-            Because the Err condition has already been checked, we can just XOR (^) here
-             */
-            let skull = self.skull ^ rhs.skull;
-            // Subtraction doesn't need to be checked because of check
-            let flowers = self.flowers - rhs.flowers;
-            Ok(Hand { skull, flowers })
-        }
-    }
-}
-
-impl TryFrom<&[Card]> for Hand {
-    type Error = &'static str;
-
-    fn try_from(value: &[Card]) -> Result<Self, Self::Error> {
-        let mut skull = false;
-        let mut flowers = 0;
-        for n in value {
-            use Card::*;
-            match n {
-                Skull => {
-                    if !skull {
-                        skull = true
-                    } else {
-                        return Err("Multiple skulls");
-                    }
-                }
-                Flower => {
-                    if flowers < 3 {
-                        flowers += 1
-                    } else {
-                        return Err("Too many flowers");
-                    }
-                }
-            }
-        }
-        Ok(Hand { skull, flowers })
     }
 }
 
@@ -238,6 +101,8 @@ pub enum Response {
 pub enum RespondError {
     PendingEvent,
     IncorrectInputType(InputType),
+    CardNotInHand,
+    CardAlreadyFlipped,
 }
 
 impl fmt::Display for RespondError {
@@ -255,6 +120,8 @@ impl fmt::Display for RespondError {
                     FlipCard => "Flip",
                 })
             }
+            CardNotInHand => write!(f, "The player doesn't have that card"),
+            CardAlreadyFlipped => write!(f, "The player has already flipped that card"),
         }
     }
 }

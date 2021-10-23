@@ -27,11 +27,11 @@ impl<const N: usize> Game<N> {
         }
     }
 
-    pub fn scores(&self) -> &[u8] {
+    pub const fn scores(&self) -> &[u8] {
         &self.scores
     }
 
-    pub fn hands(&self) -> &[Hand] {
+    pub const fn hands(&self) -> &[Hand] {
         &self.player_hands
     }
 
@@ -39,7 +39,7 @@ impl<const N: usize> Game<N> {
         self.cards_played.iter().map(FVec::as_slice).collect()
     }
 
-    pub fn state(&self) -> &State<N> {
+    pub const fn state(&self) -> &State<N> {
         &self.state
     }
 
@@ -189,19 +189,23 @@ impl<const N: usize> Game<N> {
 
         let Game { state, .. } = self;
 
-        // TODO: account for players that are out
         use Response::*;
-        // Match against state & response instead of input?
         match (state, response) {
             // Playing card
             (Playing { current_player }, PlayCard(card)) => {
-                // TODO: check if playing card they've already played
-                assert!(
-                    self.player_hands[*current_player].has(card),
-                    "Player is playing card they don't have\nHand: {}\nCard: {}",
-                    self.player_hands[*current_player],
-                    card
-                );
+                /*
+                Check player is playing a card they have and haven't already
+                played. To do this work out the cards left in their hand, then
+                see if the card they're currently trying to play is in that set
+                of remaining cards
+                 */
+                let cards_remaining = (self.player_hands[*current_player]
+                    - self.cards_played[*current_player].clone())
+                .unwrap_or_else(|err| panic!("{}", err));
+                if !cards_remaining.has(card) {
+                    return Err(CardNotInHand);
+                }
+                // We're all good, play the card
                 self.cards_played[*current_player].push(card).unwrap();
                 self.increment_player();
             }
@@ -321,15 +325,15 @@ impl<const N: usize> Game<N> {
         Ok(())
     }
 
-    pub fn player_count(&self) -> usize {
-        self.player_hands.len()
+    pub const fn player_count(&self) -> usize {
+        N
     }
 
     pub fn remaining_player_count(&self) -> usize {
         self.player_hands.iter().filter(|h| !h.empty()).count()
     }
 
-    fn player(&self) -> usize {
+    const fn player(&self) -> usize {
         match self.state {
             Playing { current_player } => current_player,
             Bidding { current_bidder, .. } => current_bidder,
@@ -337,30 +341,48 @@ impl<const N: usize> Game<N> {
         }
     }
 
-    fn increment_player(&mut self) {
-        let player_count = self.player_count();
-        let state = &mut self.state;
-        // TODO: skip players that are out
-        match state {
-            Playing { current_player } => *current_player = (*current_player + 1) % player_count,
-            Bidding {
-                current_bidder,
-                passed,
-                ..
-            } => {
-                assert_ne!(
-                    *passed,
-                    [true; N],
-                    "Infinite loop caused by trying to increment player when all players have passed in the bid",
-                );
-
-                *current_bidder = (*current_bidder + 1) % player_count;
-                while passed[*current_bidder] {
-                    *current_bidder = (*current_bidder + 1) % player_count;
-                }
-            }
-            _ => unreachable!("Increment player should not be called unless playing or bidding"),
+    fn set_player(&mut self, player_index: usize) {
+        match &mut self.state {
+            Playing { current_player } => *current_player = player_index,
+            Bidding { current_bidder, .. } => *current_bidder = player_index,
+            // This is almost certainly *not* what I want to do, but I've included it
+            // for completeness
+            Challenging { challenger, .. } => *challenger = player_index,
         }
+    }
+
+    // False if not bidding or player hasn't passed
+    const fn has_passed(&self, player_index: usize) -> bool {
+        if let State::Bidding { passed, .. } = self.state {
+            passed[player_index]
+        } else {
+            false
+        }
+    }
+
+    fn increment_player(&mut self) {
+        // Pre-flight checks
+        assert!(
+            !self.player_hands.iter().all(|h| h.empty()),
+            "All players are out, panicking to avoid infinite loop"
+        );
+        debug_assert!(
+            !matches!(self.state, State::Challenging { .. }),
+            "Increment player should never be called when matching"
+        );
+
+        const RANGED_ADDER: fn(usize, usize) -> usize =
+            |index, max| (index + 1) % max;
+        let mut player_index = RANGED_ADDER(self.player(), self.player_count());
+        loop {
+            if self.is_player_out(player_index) || self.has_passed(player_index)
+            {
+                player_index = RANGED_ADDER(player_index, self.player_count());
+            } else {
+                break;
+            }
+        }
+        self.set_player(player_index);
     }
 
     fn is_player_out(&self, player_index: usize) -> bool {
