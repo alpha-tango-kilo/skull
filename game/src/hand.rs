@@ -86,10 +86,10 @@ impl fmt::Display for Hand {
     }
 }
 
-impl<'a> TryFrom<&'a [Card]> for Hand {
+impl TryFrom<&[Card]> for Hand {
     type Error = HandError;
 
-    fn try_from(value: &'a [Card]) -> Result<Self, Self::Error> {
+    fn try_from(value: &[Card]) -> Result<Self, Self::Error> {
         let mut skull = false;
         let mut flowers = 0;
         for n in value {
@@ -139,12 +139,11 @@ impl Sub<Self> for Hand {
     }
 }
 
-// TODO: take reference since OrderedHand isn't Copy
-impl Sub<OrderedHand> for Hand {
+impl Sub<&[Card]> for Hand {
     type Output = Result<Hand, HandError>;
 
-    fn sub(self, rhs: OrderedHand) -> Self::Output {
-        let rhs = Hand::try_from(rhs.as_slice())?;
+    fn sub(self, rhs: &[Card]) -> Self::Output {
+        let rhs = Hand::try_from(rhs)?;
         self - rhs
     }
 }

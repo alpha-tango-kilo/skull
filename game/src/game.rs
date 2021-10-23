@@ -200,7 +200,7 @@ impl<const N: usize> Game<N> {
                 of remaining cards
                  */
                 let cards_remaining = (self.player_hands[*current_player]
-                    - self.cards_played[*current_player].clone())
+                    - self.cards_played[*current_player].as_slice())
                 .unwrap_or_else(|err| panic!("{}", err));
                 if !cards_remaining.has(card) {
                     return Err(CardNotInHand);
