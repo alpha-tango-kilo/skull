@@ -1,5 +1,13 @@
 use crate::*;
 
+/// A simulation of a game of Skull
+///
+/// Keeps track of scores, players' cards, the state of the game, everything
+/// you need
+///
+/// Game is (mostly) heapless and so is (somewhat unfortunately) generic over
+/// the number of players.
+/// This can be 3 to 6, inclusive
 #[derive(Debug, Clone)]
 pub struct Game<const N: usize> {
     scores: [u8; N],                // public via getter
@@ -14,6 +22,10 @@ impl<const N: usize> Game<N> {
     const CARDS_PLAYED_INIT: OrderedHand = fvec![];
     const STATE_FLIPPED_INIT: FVec<usize, 4> = fvec![];
 
+    /// Creates a new game
+    ///
+    /// The first action the `Game` will expect is [`Response::PlayCard`],
+    /// to be provided using [`respond()`](Game::respond())
     pub fn new() -> Self {
         assert!((3..=6).contains(&N), "Invalid number of players");
 
@@ -27,22 +39,41 @@ impl<const N: usize> Game<N> {
         }
     }
 
+    /// Gets a slice of the game's scores
+    ///
+    /// Length will be equal to the number of players
     pub const fn scores(&self) -> &[u8] {
         &self.scores
     }
 
+    /// Gets a slice of the players' hands
+    ///
+    /// Length will be equal to the number of players
     pub const fn hands(&self) -> &[Hand] {
         &self.player_hands
     }
 
+    /// Gets a `Vec<&[Card]>` of the cards in play by each player
+    ///
+    /// Allocates a `Vec` with length equal to the number of players
     pub fn cards_played(&self) -> Vec<&[Card]> {
         self.cards_played.iter().map(FVec::as_slice).collect()
     }
 
+    /// Gets the [`State`] of the game
     pub const fn state(&self) -> &State<N> {
         &self.state
     }
 
+    /// Notifies of events or tells you what input is required
+    ///
+    /// If in doubt, use this to work out what's going on
+    ///
+    /// Running this method will discard any 'notification' [`Event`] and,
+    /// where necessary, may also mutate the [`State`](Game::state()) of the
+    /// `Game`
+    ///
+    /// See also: [`Event`]
     pub fn what_next(&mut self) -> Event {
         use Event::*;
         use InputType::*;
@@ -179,6 +210,12 @@ impl<const N: usize> Game<N> {
         }
     }
 
+    /// Provide an input to the game simulation
+    ///
+    /// If the input is valid, Ok will be returned. Otherwise, you'll get a
+    /// [`ResponseError`] indicating what's been done incorrectly
+    ///
+    /// See also: [`Response`]
     pub fn respond(&mut self, response: Response) -> Result<(), ResponseError> {
         use ResponseError::*;
         if self.pending_event.is_some() {
@@ -351,14 +388,17 @@ impl<const N: usize> Game<N> {
         Ok(())
     }
 
+    /// Gets the number of players
     pub const fn player_count(&self) -> usize {
         N
     }
 
+    /// Gets the number of players that still have cards
     pub fn remaining_player_count(&self) -> usize {
         self.player_hands.iter().filter(|h| !h.empty()).count()
     }
 
+    /// Gets the index of the current player
     const fn player(&self) -> usize {
         match self.state {
             Playing { current_player } => current_player,
@@ -697,6 +737,12 @@ impl<const N: usize> Game<N> {
         }
     }
 
+    /// Allows the creation of an in progress game
+    ///
+    /// The game is checked extensively (though due to the complexity, do not
+    /// rely on this - submit a bug report if you can create an invalid game),
+    /// and will panic if the game is in any way invalid.
+    /// Otherwise, it returns you the newly created game
     pub fn create_from(
         scores: [u8; N],
         player_hands: [Hand; N],
