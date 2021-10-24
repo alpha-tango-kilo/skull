@@ -309,6 +309,8 @@ impl<const N: usize> Game<N> {
                     || card_index >= self.cards_played[player_index].len()
                 {
                     return Err(InvalidIndex);
+                } else if player_index == *challenger {
+                    return Err(ManuallyFlippingOwnCards);
                 } else if flipped[player_index].contains(&card_index) {
                     return Err(CardAlreadyFlipped);
                 }

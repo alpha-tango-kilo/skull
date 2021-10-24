@@ -167,3 +167,21 @@ fn card_already_flipped() {
     let err = game.respond(Flip(1, 0)).unwrap_err();
     assert_eq!(err, CardAlreadyFlipped);
 }
+
+#[test]
+fn manually_flipping_own_cards() {
+    let challenger = 0;
+    let mut game = Game::create_from(
+        [0; 3],
+        [Hand::new(); 3],
+        [fvec![Flower; 2], fvec![Flower; 2], fvec![Flower, Skull]],
+        State::Challenging {
+            challenger,
+            target: 5,
+            flipped: [fvec![0, 1], fvec![1, 0], fvec![]],
+        },
+        None,
+    );
+    let err = game.respond(Flip(challenger, 0)).unwrap_err();
+    assert_eq!(err, ManuallyFlippingOwnCards);
+}

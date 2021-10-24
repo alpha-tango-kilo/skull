@@ -106,6 +106,7 @@ pub enum ResponseError {
     BidTooHigh(usize),
     InvalidIndex,
     CardAlreadyFlipped,
+    ManuallyFlippingOwnCards,
 }
 
 impl fmt::Display for ResponseError {
@@ -128,6 +129,7 @@ impl fmt::Display for ResponseError {
             BidTooHigh(max) => write!(f, "Bid too high, needs to be at most {}", max),
             InvalidIndex => write!(f, "Invalid index, outside of allowed range"),
             CardAlreadyFlipped => write!(f, "The player has already flipped that card"),
+            ManuallyFlippingOwnCards => write!(f, "Challenger is trying to flip their own cards, which are already flipped"),
         }
     }
 }
