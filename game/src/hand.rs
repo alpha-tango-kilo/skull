@@ -5,13 +5,19 @@ use crate::*;
 use std::error::Error;
 use HandError::*;
 
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
+/// A player's hand when playing Skull
+///
+/// Can contain at most one [skull](Card::Skull), and at most 3 [flowers](Card::Flower)
+///
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Hand {
     skull: bool,
     flowers: u8,
 }
 
 impl Hand {
+    /// Creates a new full hand (1 skull, 3 flowers)
     // WARNING: new() and default() differ
     pub const fn new() -> Self {
         Hand {
@@ -20,10 +26,12 @@ impl Hand {
         }
     }
 
+    /// Returns `true` if there is a skull in the hand
     pub const fn has_skull(&self) -> bool {
         self.skull
     }
 
+    /// Returns `true` if the given card is present in the hand
     pub const fn has(&self, other: Card) -> bool {
         use Card::*;
         match other {
@@ -32,14 +40,21 @@ impl Hand {
         }
     }
 
+    /// Returns the number of cards in the hand, as a [u8]
     pub const fn count(&self) -> u8 {
         self.flowers + self.skull as u8
     }
 
+    /// Returns true if there are no cards in the hand
     pub const fn empty(&self) -> bool {
         self.count() == 0
     }
 
+    /// Represents the hand as a `Vec<Card>`
+    ///
+    /// Useful for when you want to display the cards in a hand
+    ///
+    /// This method allocates a new `Vec`
     pub fn as_vec(&self) -> Vec<Card> {
         let mut v = vec![Card::Flower; self.flowers as usize];
         if self.skull {
@@ -48,6 +63,7 @@ impl Hand {
         v
     }
 
+    /// Returns `true` if `other` is a subset of `self`
     pub(crate) fn is_superset_of(&self, other: Hand) -> bool {
         let skull_ok =
             self.skull == other.skull || (self.skull && !other.skull);
@@ -55,6 +71,7 @@ impl Hand {
         skull_ok && flowers_ok
     }
 
+    /// Discards a single random card from the hand
     pub(crate) fn discard_one(&mut self, rng: &mut ThreadRng) {
         debug_assert!(
             self.count() > 0,
@@ -75,8 +92,20 @@ impl Hand {
         }
     }
 
+    /// Checks the hand doesn't have an invalid number of flowers (i.e. more than 4)
     pub(crate) fn assert_valid(&self) {
         assert!(self.flowers < 4, "Too many flowers in hand");
+    }
+}
+
+// Manually derived so the documentation is editable
+impl Default for Hand {
+    /// Creates a new empty hand
+    fn default() -> Self {
+        Hand {
+            skull: false,
+            flowers: 0,
+        }
     }
 }
 

@@ -1,3 +1,31 @@
+//! # What is Skull?
+//!
+//! Skull is the quintessence of bluffing, a game in which everything is played in the players' heads.
+//! Each player plays a face-down card, then each player in turn adds one more card – until someone feels safe enough to state that he can turn a number of cards face up and get only roses.
+//! Other players can then overbid him, saying they can turn even more cards face up.
+//! The highest bidder must then turn that number of cards face up, starting with his own.
+//! If he shows only roses, he wins; if he reveals a skull, he loses, placing one of his cards out of play.
+//! Two successful challenges wins the game.
+//! Skull is not a game of luck; it's a game of poker face and meeting eyes.
+//!
+//! (Edited description from Bruno Faidutti's write-up of the game in his [Ideal Game Library](http://www.faidutti.com/index.php?Module=ludotheque&id=728))
+//!
+//! ## How do I play Skull?
+//!
+//! Here's the [game's manual](http://www.skull-and-roses.com/pdf/Skull_EnP.pdf) (in English)
+//!
+//! # What does this crate provide?
+//!
+//! This crate provides a **simulation** of the game Skull.
+//! It allows for the creation of a [Game] for 3 to 6 players (as recommended by the original) and provides all necessary means to interact with the game and understand the current state of the game.
+//! It enforces all of the games rules and scoring for you, so you only need to focus on how you wish to present the game.
+//!
+//! Please note the documentation has been written on the assumption of an understand of the way Skull works.
+//! If you don't know, it is highly recommended to read the manual and play the game at least once to grasp it.
+//!
+
+#![warn(missing_docs)]
+
 mod game;
 mod hand;
 
@@ -6,18 +34,21 @@ use heapless::Vec as FVec; // Fixed Vec
 use std::convert::TryFrom;
 use std::fmt;
 
-use rand::rngs::ThreadRng;
+pub use rand::rngs::ThreadRng;
 use rand::Rng;
 
 use Card::*;
 use Event::*;
 use State::*;
 
+#[doc(inline)]
 pub use game::Game;
+#[doc(inline)]
 pub use hand::Hand;
 
 type OrderedHand = FVec<Card, 4>;
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! fvec {
     () => {
@@ -31,9 +62,12 @@ macro_rules! fvec {
     };
 }
 
+/// A playing card
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Card {
+    #[allow(missing_docs)]
     Flower,
+    #[allow(missing_docs)]
     Skull,
 }
 
