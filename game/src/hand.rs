@@ -115,6 +115,14 @@ impl TryFrom<&[Card]> for Hand {
     }
 }
 
+impl<const N: usize> TryFrom<[Card; N]> for Hand {
+    type Error = HandError;
+
+    fn try_from(value: [Card; N]) -> Result<Self, Self::Error> {
+        Self::try_from(&value[..])
+    }
+}
+
 impl Sub<Self> for Hand {
     type Output = Result<Hand, HandError>;
 

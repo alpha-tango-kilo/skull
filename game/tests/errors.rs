@@ -49,7 +49,7 @@ fn card_not_in_hand() {
         [
             Hand::new(),
             Hand::new(),
-            Hand::try_from(&[Flower][..]).unwrap(),
+            Hand::try_from([Flower]).unwrap(),
         ],
         [fvec![Flower], fvec![Flower], fvec![]],
         State::Playing { current_player: 2 },
@@ -63,7 +63,7 @@ fn card_not_in_hand() {
         [
             Hand::new(),
             Hand::new(),
-            Hand::try_from(&[Flower, Skull][..]).unwrap(),
+            Hand::try_from([Flower, Skull]).unwrap(),
         ],
         [fvec![Flower], fvec![Flower], fvec![Flower]],
         State::Playing { current_player: 2 },
@@ -80,7 +80,7 @@ fn bid_too_low() {
         [
             Hand::new(),
             Hand::new(),
-            Hand::try_from(&[Flower][..]).unwrap(),
+            Hand::try_from([Flower]).unwrap(),
         ],
         [fvec![Flower], fvec![Flower], fvec![Flower]],
         State::Bidding {
@@ -104,7 +104,7 @@ fn bid_too_high() {
         [
             Hand::new(),
             Hand::new(),
-            Hand::try_from(&[Flower][..]).unwrap(),
+            Hand::try_from([Flower]).unwrap(),
         ],
         [fvec![Flower], fvec![Flower], fvec![Flower]],
         State::Bidding {

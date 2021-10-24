@@ -98,7 +98,7 @@ mod playing {
             [
                 Hand::new(),
                 Hand::new(),
-                Hand::try_from(&[Flower][..]).unwrap(),
+                Hand::try_from([Flower]).unwrap(),
             ],
             [fvec![Flower], fvec![Flower], fvec![Flower]],
             State::Playing { current_player: 2 },
@@ -394,7 +394,7 @@ mod bidding {
             [
                 Hand::new(),
                 Hand::new(),
-                Hand::try_from(&[Flower][..]).unwrap(),
+                Hand::try_from([Flower]).unwrap(),
             ],
             [fvec![Flower], fvec![Flower], fvec![Flower]],
             State::Bidding {
@@ -417,7 +417,7 @@ mod bidding {
             [
                 Hand::new(),
                 Hand::new(),
-                Hand::try_from(&[Flower][..]).unwrap(),
+                Hand::try_from([Flower]).unwrap(),
             ],
             [fvec![Flower], fvec![Flower], fvec![Flower]],
             State::Bidding {
@@ -446,7 +446,7 @@ mod bidding {
             [
                 Hand::new(),
                 Hand::new(),
-                Hand::try_from(&[Flower][..]).unwrap(),
+                Hand::try_from([Flower]).unwrap(),
             ],
             [fvec![Flower], fvec![Flower], fvec![Flower]],
             State::Bidding {
@@ -480,7 +480,7 @@ mod bidding {
             [
                 Hand::new(),
                 Hand::new(),
-                Hand::try_from(&[Flower][..]).unwrap(),
+                Hand::try_from([Flower]).unwrap(),
             ],
             [fvec![Flower], fvec![Flower], fvec![Flower]],
             State::Bidding {
@@ -958,7 +958,7 @@ mod challenging {
             [
                 Hand::new(),
                 Hand::new(),
-                Hand::try_from(&[Flower][..]).unwrap(),
+                Hand::try_from([Flower]).unwrap(),
             ],
             [fvec![Skull], fvec![Flower], fvec![Flower]],
             State::Challenging {
@@ -1448,7 +1448,7 @@ mod challenging {
             let mut game = Game::create_from(
                 [1; 3],
                 [
-                    Hand::try_from(&[Skull][..]).unwrap(),
+                    Hand::try_from([Skull]).unwrap(),
                     Hand::new(),
                     Hand::new(),
                 ],
