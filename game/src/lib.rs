@@ -98,7 +98,7 @@ pub enum Response {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum RespondError {
+pub enum ResponseError {
     PendingEvent,
     IncorrectInputType(InputType),
     CardNotInHand,
@@ -108,10 +108,10 @@ pub enum RespondError {
     CardAlreadyFlipped,
 }
 
-impl fmt::Display for RespondError {
+impl fmt::Display for ResponseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use InputType::*;
-        use RespondError::*;
+        use ResponseError::*;
         match self {
             PendingEvent => write!(f, "There's a pending event that needs to be processed using Game.what_next()"),
             IncorrectInputType(it) => {
@@ -132,4 +132,4 @@ impl fmt::Display for RespondError {
     }
 }
 
-impl std::error::Error for RespondError {}
+impl std::error::Error for ResponseError {}

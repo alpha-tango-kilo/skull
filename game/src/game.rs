@@ -179,8 +179,8 @@ impl<const N: usize> Game<N> {
         }
     }
 
-    pub fn respond(&mut self, response: Response) -> Result<(), RespondError> {
-        use RespondError::*;
+    pub fn respond(&mut self, response: Response) -> Result<(), ResponseError> {
+        use ResponseError::*;
         if self.pending_event.is_some() {
             return Err(PendingEvent);
         }
@@ -306,8 +306,7 @@ impl<const N: usize> Game<N> {
                 Flip(player_index, card_index),
             ) => {
                 if player_index >= player_count
-                    || card_index
-                        >= self.player_hands[player_index].count() as usize
+                    || card_index >= self.cards_played[player_index].len()
                 {
                     return Err(InvalidIndex);
                 } else if flipped[player_index].contains(&card_index) {
@@ -725,9 +724,7 @@ impl<const N: usize> Default for Game<N> {
 }
 
 fn len_2d<T: AsRef<[I]>, I>(arr: &[T]) -> usize {
-    arr.iter()
-        .map(|sublist| sublist.as_ref().len())
-        .sum()
+    arr.iter().map(|sublist| sublist.as_ref().len()).sum()
 }
 
 fn has_unique_elements<T>(iter: T) -> bool
