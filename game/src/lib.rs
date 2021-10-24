@@ -1,27 +1,40 @@
 //! # What is Skull?
 //!
-//! Skull is the quintessence of bluffing, a game in which everything is played in the players' heads.
-//! Each player plays a face-down card, then each player in turn adds one more card – until someone feels safe enough to state that he can turn a number of cards face up and get only roses.
-//! Other players can then overbid him, saying they can turn even more cards face up.
-//! The highest bidder must then turn that number of cards face up, starting with his own.
-//! If he shows only roses, he wins; if he reveals a skull, he loses, placing one of his cards out of play.
+//! Skull is the quintessence of bluffing, a game in which everything is played
+//! in the players' heads.
+//! Each player plays a face-down card, then each player in turn adds one more
+//! card – until someone feels safe enough to state that he can turn a number
+//! of cards face up and get only roses.
+//! Other players can then overbid him, saying they can turn even more cards
+//! face up.
+//! The highest bidder must then turn that number of cards face up, starting
+//! with his own.
+//! If he shows only roses, he wins; if he reveals a skull, he loses, placing
+//! one of his cards out of play.
 //! Two successful challenges wins the game.
 //! Skull is not a game of luck; it's a game of poker face and meeting eyes.
 //!
-//! (Edited description from Bruno Faidutti's write-up of the game in his [Ideal Game Library](http://www.faidutti.com/index.php?Module=ludotheque&id=728))
+//! (Edited description from Bruno Faidutti's write-up of the game in his
+//! [Ideal Game Library](http://www.faidutti.com/index.php?Module=ludotheque&id=728))
 //!
 //! ## How do I play Skull?
 //!
-//! Here's the [game's manual](http://www.skull-and-roses.com/pdf/Skull_EnP.pdf) (in English)
+//! Here's the [game's manual](http://www.skull-and-roses.com/pdf/Skull_EnP.pdf)
+//! (in English)
 //!
 //! # What does this crate provide?
 //!
 //! This crate provides a **simulation** of the game Skull.
-//! It allows for the creation of a [Game] for 3 to 6 players (as recommended by the original) and provides all necessary means to interact with the game and understand the current state of the game.
-//! It enforces all of the games rules and scoring for you, so you only need to focus on how you wish to present the game.
+//! It allows for the creation of a [Game] for 3 to 6 players (as recommended
+//! by the original) and provides all necessary means to interact with the
+//! game and understand the current state of the game.
+//! It enforces all of the games rules and scoring for you, so you only need
+//! to focus on how you wish to present the game.
 //!
-//! Please note the documentation has been written on the assumption of an understand of the way Skull works.
-//! If you don't know, it is highly recommended to read the manual and play the game at least once to grasp it.
+//! Please note the documentation has been written on the assumption of an
+//! understanding of the way Skull works.
+//! If you don't know, it is highly recommended to read the manual and play the
+//! game at least once to grasp it.
 //!
 
 #![warn(missing_docs)]
@@ -29,7 +42,7 @@
 mod game;
 mod hand;
 
-use heapless::Vec as FVec; // Fixed Vec
+pub use heapless::Vec as FVec; // Fixed Vec
 
 use std::convert::TryFrom;
 use std::fmt;
@@ -78,22 +91,52 @@ impl fmt::Display for Card {
     }
 }
 
+/// Describes the current state of play of the game
+///
+/// Skulls cycles through three phases of play:
+/// 1. Playing (putting down cards)
+/// 2. Bidding (determining a number of cards to challenge for)
+/// 3. Challenging (trying to turn over the chosen number of flowers)
+///
+/// This enum has a variant for each state, each of which holds any additional
+/// information relevant only to that state
+///
+/// State is generic over the number of players
+///
+/// It is expected that you would only ever get a State by calling
+/// [Game::state()], instead of creating one
+///
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum State<const N: usize> {
+    /// When players are putting down cards
     Playing {
+        /// The index of the current player
         current_player: usize,
     },
+    /// When players are determining a number of cards to challenge for
     Bidding {
+        /// The index of the current bidder
         current_bidder: usize,
+        /// The current highest bid (a number of cards)
         highest_bid: usize,
+        /// The index of the highest bidder
         highest_bidder: usize,
+        /// The highest bid possible (total number of cards played)
         max_bid: usize,
+        /// Keeps track of the players who have passed
         passed: [bool; N],
     },
+    /// When a player is trying to turn over the chosen number of flowers
     Challenging {
+        /// The index of the challenger
         challenger: usize,
+        /// The number of flowers the challenger is trying to flip
         target: usize,
-        flipped: [FVec<usize, 4>; N], // This is sorted for own cards (low - high)
+        /// The per-player indexes of flipped cards
+        ///
+        /// For the challenger, the indexes will always be ordered from low to
+        /// high as the cards are automatically flipped for them
+        flipped: [FVec<usize, 4>; N],
     },
 }
 

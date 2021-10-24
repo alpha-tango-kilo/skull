@@ -7,7 +7,8 @@ use HandError::*;
 
 /// A player's hand when playing Skull
 ///
-/// Can contain at most one [skull](Card::Skull), and at most 3 [flowers](Card::Flower)
+/// Can contain at most one [skull](Card::Skull), and at most 3
+/// [flowers](Card::Flower)
 ///
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -92,7 +93,8 @@ impl Hand {
         }
     }
 
-    /// Checks the hand doesn't have an invalid number of flowers (i.e. more than 4)
+    /// Checks the hand doesn't have an invalid number of flowers
+    /// (i.e. more than 4)
     pub(crate) fn assert_valid(&self) {
         assert!(self.flowers < 4, "Too many flowers in hand");
     }
@@ -166,7 +168,8 @@ impl Sub<Self> for Hand {
              F       T        Err
              T       F        T
              T       T        F
-            Because the Err condition has already been checked, we can just XOR (^) here
+            Because the Err condition has already been checked, we can just XOR
+            (^) here
              */
             let skull = self.skull ^ rhs.skull;
             // Subtraction doesn't need to be checked because of check
