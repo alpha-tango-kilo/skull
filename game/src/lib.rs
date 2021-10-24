@@ -102,6 +102,8 @@ pub enum RespondError {
     PendingEvent,
     IncorrectInputType(InputType),
     CardNotInHand,
+    BidTooLow(usize),
+    BidTooHigh(usize),
     CardAlreadyFlipped,
 }
 
@@ -121,6 +123,8 @@ impl fmt::Display for RespondError {
                 })
             }
             CardNotInHand => write!(f, "The player doesn't have that card"),
+            BidTooLow(min) => write!(f, "Bid too low, needs to be at least {}", min),
+            BidTooHigh(max) => write!(f, "Bid too high, needs to be at most {}", max),
             CardAlreadyFlipped => write!(f, "The player has already flipped that card"),
         }
     }

@@ -85,10 +85,10 @@ impl<const N: usize> Game<N> {
                         */
                         let flipped_skull =
                             flipped[*challenger].iter().any(|index| {
-                                println!(
+                                /*println!(
                                     "Card at index {} is a {}",
                                     index, challenger_cards_played[*index]
-                                );
+                                );*/
                                 matches!(challenger_cards_played[*index], Skull)
                             });
                         if flipped_skull {
@@ -187,10 +187,8 @@ impl<const N: usize> Game<N> {
         let played_count = self.cards_played_count();
         let flipped_count = self.cards_flipped_count();
 
-        let Game { state, .. } = self;
-
         use Response::*;
-        match (state, response) {
+        match (&mut self.state, response) {
             // Playing card
             (Playing { current_player }, PlayCard(card)) => {
                 /*
@@ -239,28 +237,33 @@ impl<const N: usize> Game<N> {
                 Bidding {
                     current_bidder,
                     highest_bidder,
-                    highest_bid: current_bid,
+                    highest_bid,
                     max_bid,
                     ..
                 },
                 Bid(n),
             ) => {
-                assert!(
-                    n <= *max_bid,
-                    "Bid greater than maximum ({} > {})",
-                    n,
-                    max_bid
-                );
-                assert!(
-                    n > *current_bid,
-                    "Bid less than current ({} < {})",
-                    n,
-                    current_bid
-                );
-                *max_bid = n;
-                *highest_bidder = *current_bidder;
-                self.increment_player();
-                todo!("check if bid is at max and start challenge if so");
+                if n > *max_bid {
+                    return Err(BidTooHigh(*max_bid));
+                } else if n <= *highest_bid {
+                    return Err(BidTooLow(*highest_bid + 1));
+                } else {
+                    // Set the new highest bid(der)
+                    *highest_bid = n;
+                    *highest_bidder = *current_bidder;
+
+                    // Check if bid is at max and start challenge if so
+                    if highest_bid == max_bid {
+                        self.pending_event = Some(ChallengeStarted);
+                        self.state = Challenging {
+                            challenger: *highest_bidder,
+                            target: *highest_bid,
+                            flipped: [Self::STATE_FLIPPED_INIT; N],
+                        }
+                    } else {
+                        self.increment_player();
+                    }
+                }
             }
             // Player passes on bid
             (Bidding { .. }, Pass) => {
@@ -368,7 +371,7 @@ impl<const N: usize> Game<N> {
         );
         debug_assert!(
             !matches!(self.state, State::Challenging { .. }),
-            "Increment player should never be called when matching"
+            "Increment player should never be called when challenging"
         );
 
         const RANGED_ADDER: fn(usize, usize) -> usize =
