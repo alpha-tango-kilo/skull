@@ -266,8 +266,32 @@ impl<const N: usize> Game<N> {
                 }
             }
             // Player passes on bid
-            (Bidding { .. }, Pass) => {
-                todo!("Passing on a bid (check if progressing to challenge)")
+            (
+                Bidding {
+                    current_bidder,
+                    highest_bidder,
+                    highest_bid,
+                    passed,
+                    ..
+                },
+                Pass,
+            ) => {
+                debug_assert!(
+                    !passed[*current_bidder],
+                    "Current bidder shouldn't have passed, increment player probably went wrong"
+                );
+                passed[*current_bidder] = true;
+                // If all players apart from the highest bidder have passed
+                if passed.iter().filter(|b| **b).count() == N - 1 {
+                    self.pending_event = Some(ChallengeStarted);
+                    self.state = Challenging {
+                        challenger: *highest_bidder,
+                        target: *highest_bid,
+                        flipped: [Self::STATE_FLIPPED_INIT; N],
+                    }
+                } else {
+                    self.increment_player();
+                }
             }
             // Challenger flips a card
             (
