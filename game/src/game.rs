@@ -109,6 +109,10 @@ impl<const N: usize> Game<N> {
                                 } else {
                                     Some(ChallengeWonGameWon(*challenger))
                                 };
+                        } else {
+                            // Nothing exciting has happened, challenger needs
+                            // to continue flipping cards
+                            self.pending_event = None;
                         }
                     } else {
                         panic!("ChallengeStarted pending event but state isn't Challenging");
@@ -185,7 +189,6 @@ impl<const N: usize> Game<N> {
         // with Game, even though they aren't always used
         let player_count = self.player_count();
         let played_count = self.cards_played_count();
-        let flipped_count = self.cards_flipped_count();
 
         use Response::*;
         match (&mut self.state, response) {
@@ -209,10 +212,10 @@ impl<const N: usize> Game<N> {
             }
             // Starting bid
             (Playing { current_player }, Bid(n)) => {
-                assert!(
-                    n <= played_count,
-                    "Started bid for more cards than are in play"
-                );
+                if n > played_count {
+                    return Err(BidTooHigh(self.cards_played_count()));
+                }
+
                 if n < played_count {
                     self.state = State::Bidding {
                         current_bidder: (*current_player + 1) % player_count,
@@ -302,19 +305,14 @@ impl<const N: usize> Game<N> {
                 },
                 Flip(player_index, card_index),
             ) => {
-                assert!(
-                    player_index < player_count,
-                    "Invalid player specified"
-                );
-                assert!(
-                    card_index
-                        < self.player_hands[player_index].count() as usize,
-                    "Invalid card specified"
-                );
-                assert!(
-                    !flipped[player_index].contains(&card_index),
-                    "Tried to flip already-flipped card"
-                );
+                if player_index >= player_count
+                    || card_index
+                        >= self.player_hands[player_index].count() as usize
+                {
+                    return Err(InvalidIndex);
+                } else if flipped[player_index].contains(&card_index) {
+                    return Err(CardAlreadyFlipped);
+                }
 
                 let card_flipped = self.cards_played[player_index][card_index];
                 use Card::*;
@@ -329,7 +327,7 @@ impl<const N: usize> Game<N> {
                     }
                     Flower => {
                         flipped[player_index].push(card_index).unwrap();
-                        if flipped_count.unwrap() == *target {
+                        if len_2d(flipped) == *target {
                             self.scores[*challenger] += 1;
                             self.pending_event =
                                 Some(if self.scores[*challenger] == 2 {
@@ -724,6 +722,12 @@ impl<const N: usize> Default for Game<N> {
     fn default() -> Self {
         Game::new()
     }
+}
+
+fn len_2d<T: AsRef<[I]>, I>(arr: &[T]) -> usize {
+    arr.iter()
+        .map(|sublist| sublist.as_ref().len())
+        .sum()
 }
 
 fn has_unique_elements<T>(iter: T) -> bool

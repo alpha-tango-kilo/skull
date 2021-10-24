@@ -104,6 +104,7 @@ pub enum RespondError {
     CardNotInHand,
     BidTooLow(usize),
     BidTooHigh(usize),
+    InvalidIndex,
     CardAlreadyFlipped,
 }
 
@@ -125,6 +126,7 @@ impl fmt::Display for RespondError {
             CardNotInHand => write!(f, "The player doesn't have that card"),
             BidTooLow(min) => write!(f, "Bid too low, needs to be at least {}", min),
             BidTooHigh(max) => write!(f, "Bid too high, needs to be at most {}", max),
+            InvalidIndex => write!(f, "Invalid index, outside of allowed range"),
             CardAlreadyFlipped => write!(f, "The player has already flipped that card"),
         }
     }
