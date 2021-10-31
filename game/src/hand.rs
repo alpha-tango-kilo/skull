@@ -51,15 +51,17 @@ impl Hand {
         self.count() == 0
     }
 
-    /// Represents the hand as a `Vec<Card>`
+    /// Represents the hand as a `FVec<Card, 4>`
     ///
     /// Useful for when you want to display the cards in a hand
     ///
-    /// This method allocates a new `Vec`
-    pub fn as_vec(&self) -> Vec<Card> {
-        let mut v = vec![Card::Flower; self.flowers as usize];
+    /// This method allocates a new [`FVec`]
+    pub fn as_vec(&self) -> FVec<Card, 4> {
+        use Card::*;
+        let mut v = fvec![];
+        v.extend(std::iter::repeat(Flower).take(self.flowers as usize));
         if self.skull {
-            v.insert(0, Card::Skull)
+            v.push(Skull).expect("There were 4 flowers");
         }
         v
     }

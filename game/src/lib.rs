@@ -37,11 +37,14 @@
 //! game at least once to grasp it.
 //!
 
-#![warn(missing_docs)]
+#![deny(missing_docs)]
 
 mod game;
 mod hand;
 
+/// Re-exports [heapless'](https://lib.rs/crates/heapless)
+/// [`Vec`](https://docs.rs/heapless/0.7.7/heapless/struct.Vec.html) under a
+/// different name; `FVec` being short for "**f**ixed-length **vec**tor"
 pub use heapless::Vec as FVec; // Fixed Vec
 
 use std::convert::TryFrom;
@@ -188,11 +191,11 @@ pub enum Event {
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum InputType {
     /// The player must play a card
-    PlayCard,           // When not everyone has played a card
+    PlayCard, // When not everyone has played a card
     /// The player can either play a card or start a bid
     PlayCardOrStartBid, // When everyone has played a card
     /// The player must start a bid
-    StartBid,           // When player has no cards remaining
+    StartBid, // When player has no cards remaining
     /// The player must bid or pass
     BidOrPass,
     /// The challenger must flip a card
