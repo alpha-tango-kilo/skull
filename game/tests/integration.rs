@@ -1,7 +1,5 @@
 use heapless::Vec as FVec;
 
-// TODO: Game::respond Errs
-
 mod playing {
     use game::Card::*;
     use game::Event::*;
@@ -95,11 +93,7 @@ mod playing {
         // Player only has one flower which is already in play
         let mut game = Game::create_from(
             [0; 3],
-            [
-                Hand::new(),
-                Hand::new(),
-                Hand::try_from([Flower]).unwrap(),
-            ],
+            [Hand::new(), Hand::new(), Hand::try_from([Flower]).unwrap()],
             [fvec![Flower], fvec![Flower], fvec![Flower]],
             State::Playing { current_player: 2 },
             None,
@@ -391,11 +385,7 @@ mod bidding {
     fn bid_no_challenge() {
         let mut game = Game::create_from(
             [0; 3],
-            [
-                Hand::new(),
-                Hand::new(),
-                Hand::try_from([Flower]).unwrap(),
-            ],
+            [Hand::new(), Hand::new(), Hand::try_from([Flower]).unwrap()],
             [fvec![Flower], fvec![Flower], fvec![Flower]],
             State::Bidding {
                 current_bidder: 0,
@@ -414,11 +404,7 @@ mod bidding {
     fn bid_starts_challenge() {
         let mut game = Game::create_from(
             [0; 3],
-            [
-                Hand::new(),
-                Hand::new(),
-                Hand::try_from([Flower]).unwrap(),
-            ],
+            [Hand::new(), Hand::new(), Hand::try_from([Flower]).unwrap()],
             [fvec![Flower], fvec![Flower], fvec![Flower]],
             State::Bidding {
                 current_bidder: 0,
@@ -443,11 +429,7 @@ mod bidding {
         let bidder = 0;
         let mut game = Game::create_from(
             [0; 3],
-            [
-                Hand::new(),
-                Hand::new(),
-                Hand::try_from([Flower]).unwrap(),
-            ],
+            [Hand::new(), Hand::new(), Hand::try_from([Flower]).unwrap()],
             [fvec![Flower], fvec![Flower], fvec![Flower]],
             State::Bidding {
                 current_bidder: bidder,
@@ -477,11 +459,7 @@ mod bidding {
         let bidder = 0; // Changing will break test
         let mut game = Game::create_from(
             [0; 3],
-            [
-                Hand::new(),
-                Hand::new(),
-                Hand::try_from([Flower]).unwrap(),
-            ],
+            [Hand::new(), Hand::new(), Hand::try_from([Flower]).unwrap()],
             [fvec![Flower], fvec![Flower], fvec![Flower]],
             State::Bidding {
                 current_bidder: bidder,
@@ -495,6 +473,12 @@ mod bidding {
         game.respond(Pass)
             .expect("Game should have accepted the response");
 
+        assert_eq!(
+            game.what_next(),
+            ChallengeStarted,
+            "ChallengeStarted event not fired"
+        );
+
         if let State::Challenging {
             challenger, target, ..
         } = game.state()
@@ -504,12 +488,6 @@ mod bidding {
         } else {
             panic!("Game state should have changed to challenge");
         }
-
-        assert_eq!(
-            game.what_next(),
-            ChallengeStarted,
-            "ChallengeStarted event not fired"
-        );
     }
 
     #[test]
@@ -955,11 +933,7 @@ mod challenging {
         let skull_player = 0;
         let mut game = Game::create_from(
             [0; 3],
-            [
-                Hand::new(),
-                Hand::new(),
-                Hand::try_from([Flower]).unwrap(),
-            ],
+            [Hand::new(), Hand::new(), Hand::try_from([Flower]).unwrap()],
             [fvec![Skull], fvec![Flower], fvec![Flower]],
             State::Challenging {
                 challenger,
@@ -1083,7 +1057,6 @@ mod challenging {
         use game::Event::*;
         use game::*;
 
-        use crate::*;
         use std::convert::TryFrom;
 
         #[test]
@@ -1447,11 +1420,7 @@ mod challenging {
             let challenger = 0;
             let mut game = Game::create_from(
                 [1; 3],
-                [
-                    Hand::try_from([Skull]).unwrap(),
-                    Hand::new(),
-                    Hand::new(),
-                ],
+                [Hand::try_from([Skull]).unwrap(), Hand::new(), Hand::new()],
                 [fvec![Skull], fvec![Flower, Skull], fvec![Flower, Skull]],
                 State::Challenging {
                     challenger,

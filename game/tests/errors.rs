@@ -46,11 +46,7 @@ fn incorrect_input_type() {
 fn card_not_in_hand() {
     let mut game = Game::create_from(
         [0; 3],
-        [
-            Hand::new(),
-            Hand::new(),
-            Hand::try_from([Flower]).unwrap(),
-        ],
+        [Hand::new(), Hand::new(), Hand::try_from([Flower]).unwrap()],
         [fvec![Flower], fvec![Flower], fvec![]],
         State::Playing { current_player: 2 },
         None,
@@ -77,11 +73,7 @@ fn card_not_in_hand() {
 fn bid_too_low() {
     let mut game = Game::create_from(
         [0; 3],
-        [
-            Hand::new(),
-            Hand::new(),
-            Hand::try_from([Flower]).unwrap(),
-        ],
+        [Hand::new(), Hand::new(), Hand::try_from([Flower]).unwrap()],
         [fvec![Flower], fvec![Flower], fvec![Flower]],
         State::Bidding {
             current_bidder: 0,
@@ -101,11 +93,7 @@ fn bid_too_high() {
     let max_bid = 3;
     let mut game = Game::create_from(
         [0; 3],
-        [
-            Hand::new(),
-            Hand::new(),
-            Hand::try_from([Flower]).unwrap(),
-        ],
+        [Hand::new(), Hand::new(), Hand::try_from([Flower]).unwrap()],
         [fvec![Flower], fvec![Flower], fvec![Flower]],
         State::Bidding {
             current_bidder: 0,
