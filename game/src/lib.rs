@@ -58,9 +58,9 @@ use Event::*;
 use State::*;
 
 #[doc(inline)]
-pub use game::Game;
+pub use crate::game::Game;
 #[doc(inline)]
-pub use hand::Hand;
+pub use crate::hand::Hand;
 
 type OrderedHand = FVec<Card, 4>;
 

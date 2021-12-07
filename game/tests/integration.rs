@@ -1,5 +1,3 @@
-use heapless::Vec as FVec;
-
 mod playing {
     use game::Card::*;
     use game::Event::*;
