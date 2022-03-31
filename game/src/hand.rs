@@ -2,6 +2,7 @@ use std::ops::Sub;
 
 use crate::*;
 
+use nanorand::Rng;
 use std::error::Error;
 use HandError::*;
 
@@ -75,14 +76,14 @@ impl Hand {
     }
 
     /// Discards a single random card from the hand
-    pub(crate) fn discard_one(&mut self, rng: &mut ThreadRng) {
+    pub(crate) fn discard_one(&mut self) {
         debug_assert!(
             self.count() > 0,
             "Tried to discard card with none in hand"
         );
 
         if self.skull && self.flowers > 0 {
-            let choice = rng.gen_range(0..=self.count());
+            let choice = nanorand::tls_rng().generate_range(0..=self.count());
             if choice == 0 {
                 self.skull = false;
             } else {

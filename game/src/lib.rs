@@ -50,9 +50,6 @@ pub use heapless::Vec as FVec; // Fixed Vec
 use std::convert::TryFrom;
 use std::fmt;
 
-pub use rand::rngs::ThreadRng;
-use rand::Rng;
-
 use Card::*;
 use Event::*;
 use State::*;

@@ -15,7 +15,6 @@ pub struct Game<const N: usize> {
     cards_played: [OrderedHand; N], // FVec<[Card; 4]> is ordered bottom -> top
     state: State<N>,                // public via getter
     pending_event: Option<Event>,
-    rng: ThreadRng,
 }
 
 impl<const N: usize> Game<N> {
@@ -35,7 +34,6 @@ impl<const N: usize> Game<N> {
             cards_played: [Self::CARDS_PLAYED_INIT; N],
             state: Playing { current_player: 0 },
             pending_event: None,
-            rng: rand::thread_rng(),
         }
     }
 
@@ -123,8 +121,7 @@ impl<const N: usize> Game<N> {
                                 matches!(challenger_cards_played[*index], Skull)
                             });
                         if flipped_skull {
-                            self.player_hands[*challenger]
-                                .discard_one(&mut self.rng);
+                            self.player_hands[*challenger].discard_one();
                             self.pending_event = Some(ChallengerChoseSkull {
                                 challenger: *challenger,
                                 skull_player: *challenger,
@@ -356,8 +353,7 @@ impl<const N: usize> Game<N> {
                 use Card::*;
                 match card_flipped {
                     Skull => {
-                        self.player_hands[*challenger]
-                            .discard_one(&mut self.rng);
+                        self.player_hands[*challenger].discard_one();
                         self.pending_event = Some(ChallengerChoseSkull {
                             challenger: *challenger,
                             skull_player: player_index,
@@ -757,7 +753,6 @@ impl<const N: usize> Game<N> {
             cards_played,
             state,
             pending_event,
-            rng: Default::default(),
         };
         g.assert_valid();
         println!("Game is valid");
